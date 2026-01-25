@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
+import NewMeasurement from "./pages/NewMeasurement";
 import Orders from "./pages/Orders";
 import Payments from "./pages/Payments";
 import Measurements from "./pages/Measurements";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/orders" element={<Orders />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/measurements" element={<Measurements />} />
+          <Route path="/measurements/new" element={<NewMeasurement />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
