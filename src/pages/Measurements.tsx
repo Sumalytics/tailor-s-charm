@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,13 +52,14 @@ const fitLabels: Record<FitType, { label: string; className: string }> = {
 };
 
 const measurementTemplates = [
-  { type: 'SHIRT', label: "Men's Shirt", icon: Shirt, fields: 8 },
-  { type: 'TROUSERS', label: "Men's Trousers", icon: Ruler, fields: 8 },
-  { type: 'SUIT', label: "Men's Suit", icon: User, fields: 10 },
-  { type: 'DRESS', label: "Women's Dress", icon: Shirt, fields: 8 },
+  { type: 'SHIRT', label: "Men's Shirt", icon: Shirt, fields: 8, onClick: () => {} },
+  { type: 'TROUSERS', label: "Men's Trousers", icon: Ruler, fields: 8, onClick: () => {} },
+  { type: 'SUIT', label: "Men's Suit", icon: User, fields: 10, onClick: () => {} },
+  { type: 'DRESS', label: "Women's Dress", icon: Shirt, fields: 8, onClick: () => {} },
 ];
 
 export default function Measurements() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredMeasurements = mockMeasurements.filter(
@@ -77,7 +79,7 @@ export default function Measurements() {
               Manage customer measurement records and templates
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => navigate('/measurements/new')}>
             <Plus className="h-4 w-4" />
             Add Measurement
           </Button>
@@ -91,6 +93,7 @@ export default function Measurements() {
               <Card
                 key={template.type}
                 className="shadow-soft cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
+                onClick={() => navigate('/measurements/new')}
               >
                 <CardContent className="p-4 text-center">
                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
