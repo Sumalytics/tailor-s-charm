@@ -19,16 +19,16 @@ export function QuickActions() {
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {actions.map((action) => (
             <Button
               key={action.label}
               variant="outline"
-              className="h-auto flex-col gap-2 py-4 hover:bg-secondary/80"
+              className="h-auto flex-col gap-2 py-3 sm:py-4 px-2 sm:px-3 hover:bg-secondary/80 min-h-[80px] sm:min-h-[100px]"
               onClick={() => navigate(action.href)}
             >
-              <action.icon className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium">{action.label}</span>
+              <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+              <span className="text-xs sm:text-sm font-medium text-center leading-tight">{action.label}</span>
             </Button>
           ))}
         </div>

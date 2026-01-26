@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { BodyDiagram } from '@/components/measurements/BodyDiagram';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { getCollection, addDocument } from '@/firebase/firestore';
+import { Customer, Measurement } from '@/types';
 import {
   Save,
   ArrowLeft,
@@ -31,15 +34,6 @@ import { GarmentType, FitType, MeasurementUnit } from '@/types';
 import { measurementTemplates, MeasurementField } from '@/lib/measurementTemplates';
 import { cn } from '@/lib/utils';
 
-// Mock customers for selection
-const mockCustomers = [
-  { id: '1', name: 'James Wilson', phone: '+1 234-567-8901' },
-  { id: '2', name: 'Sarah Johnson', phone: '+1 234-567-8902' },
-  { id: '3', name: 'Michael Brown', phone: '+1 234-567-8903' },
-  { id: '4', name: 'Emily Davis', phone: '+1 234-567-8904' },
-  { id: '5', name: 'David Miller', phone: '+1 234-567-8905' },
-];
-
 const garmentTypes: { type: GarmentType; label: string; icon: string }[] = [
   { type: 'SHIRT', label: 'Shirt', icon: '👔' },
   { type: 'TROUSERS', label: 'Trousers', icon: '👖' },
@@ -52,8 +46,14 @@ const garmentTypes: { type: GarmentType; label: string; icon: string }[] = [
 
 export default function NewMeasurement() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { currentUser, shopId } = useAuth();
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [customerId, setCustomerId] = useState('');
   const [measurementName, setMeasurementName] = useState('');
@@ -69,6 +69,37 @@ export default function NewMeasurement() {
   const fields = template.fields;
   const completedCount = fields.filter(f => measurements[f.key] > 0).length;
   const progress = (completedCount / fields.length) * 100;
+
+  useEffect(() => {
+    loadCustomers();
+    
+    // Check if customerId is passed in URL params
+    const urlCustomerId = searchParams.get('customerId');
+    if (urlCustomerId) {
+      setCustomerId(urlCustomerId);
+    }
+  }, [searchParams]);
+
+  const loadCustomers = async () => {
+    if (!shopId) return;
+
+    try {
+      const customersList = await getCollection<Customer>('customers', [
+        { field: 'shopId', operator: '==', value: shopId },
+        { field: 'isActive', operator: '==', value: true }
+      ]);
+      setCustomers(customersList);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      toast({
+        title: 'Error loading customers',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
 
   useEffect(() => {
     // Reset measurements when garment type changes
@@ -117,8 +148,8 @@ export default function NewMeasurement() {
     }
   };
 
-  const handleSave = () => {
-    if (!customerId) {
+  const handleSave = async () => {
+    if (!customerId || !currentUser || !shopId) {
       toast({
         title: 'Customer required',
         description: 'Please select a customer for this measurement.',
@@ -145,12 +176,46 @@ export default function NewMeasurement() {
       return;
     }
 
-    // TODO: Save to database
-    toast({
-      title: 'Measurement saved!',
-      description: `${measurementName} has been saved successfully.`,
-    });
-    navigate('/measurements');
+    setSaving(true);
+
+    try {
+      const selectedCustomer = customers.find(c => c.id === customerId);
+      
+      const measurementData = {
+        customerId: customerId,
+        customerName: selectedCustomer?.name || 'Unknown',
+        name: measurementName.trim(),
+        garmentType: garmentType,
+        unit: unit,
+        fit: fit,
+        measurements: measurements,
+        notes: notes.trim(),
+        shopId: shopId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: currentUser.uid,
+        usageCount: 0,
+      };
+
+      console.log('Saving measurement data:', measurementData);
+      const result = await addDocument('measurements', measurementData);
+      console.log('Measurement saved successfully with ID:', result);
+
+      toast({
+        title: 'Measurement saved!',
+        description: `${measurementName} has been saved successfully.`,
+      });
+      navigate('/measurements');
+    } catch (error: any) {
+      console.error('Error saving measurement:', error);
+      toast({
+        title: 'Error saving measurement',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const currentField = fields[currentFieldIndex];
@@ -169,13 +234,13 @@ export default function NewMeasurement() {
               Record body measurements for a customer
             </p>
           </div>
-          <Button onClick={handleSave} className="gap-2">
+          <Button onClick={handleSave} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
-            Save Measurement
+            {saving ? 'Saving...' : 'Save Measurement'}
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Left Column - Customer & Details */}
           <div className="space-y-6">
             {/* Customer Selection */}
@@ -187,21 +252,36 @@ export default function NewMeasurement() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockCustomers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        <div className="flex flex-col">
-                          <span>{customer.name}</span>
-                          <span className="text-xs text-muted-foreground">{customer.phone}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label>Customer *</Label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingCustomers ? (
+                        <SelectItem value="loading" disabled>
+                          Loading customers...
+                        </SelectItem>
+                      ) : customers.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No customers found
+                        </SelectItem>
+                      ) : (
+                        customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            <div className="flex flex-col">
+                              <span>{customer.name}</span>
+                              {customer.phone && (
+                                <span className="text-sm text-muted-foreground">{customer.phone}</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <div className="space-y-2">
                   <Label>Measurement Name</Label>
@@ -212,40 +292,107 @@ export default function NewMeasurement() {
                   />
                 </div>
               </CardContent>
-            </Card>
+          </Card>
 
-            {/* Garment Type Selection */}
-            <Card className="shadow-soft">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Garment Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-2">
-                  {garmentTypes.map((g) => (
+          {/* Garment Type Selection */}
+          <Card className="shadow-soft">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Garment Type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {garmentTypes.map((g) => (
+                  <button
+                    key={g.type}
+                    onClick={() => setGarmentType(g.type)}
+                    className={cn(
+                      'flex items-center gap-2 p-3 rounded-lg border transition-all text-left',
+                      garmentType === g.type
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                    )}
+                  >
+                    <span className="text-xl">{g.icon}</span>
+                    <span className="text-sm font-medium">{g.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Options */}
+          <Card className="shadow-soft">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Options</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Unit</Label>
+                <Select value={unit} onValueChange={(v) => setUnit(v as MeasurementUnit)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INCHES">Inches</SelectItem>
+                    <SelectItem value="CENTIMETERS">Centimeters</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fit Preference</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {(['SLIM', 'REGULAR', 'LOOSE'] as FitType[]).map((f) => (
                     <button
-                      key={g.type}
-                      onClick={() => setGarmentType(g.type)}
+                      key={f}
+                      onClick={() => setFit(f)}
                       className={cn(
-                        'flex items-center gap-2 p-3 rounded-lg border transition-all text-left',
-                        garmentType === g.type
+                        'p-2 rounded-lg border text-sm font-medium transition-all',
+                        fit === f
                           ? 'border-primary bg-primary/5 text-primary'
                           : 'border-border hover:border-primary/50 hover:bg-secondary/50'
                       )}
                     >
-                      <span className="text-xl">{g.icon}</span>
-                      <span className="text-sm font-medium">{g.label}</span>
+                      {f.charAt(0) + f.slice(1).toLowerCase()}
                     </button>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Options */}
-            <Card className="shadow-soft">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Options</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          {/* Garment Type Selection */}
+          <Card className="shadow-soft">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Garment Type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {garmentTypes.map((g) => (
+                  <button
+                    key={g.type}
+                    onClick={() => setGarmentType(g.type)}
+                    className={cn(
+                      'flex items-center gap-2 p-3 rounded-lg border transition-all text-left',
+                      garmentType === g.type
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                    )}
+                  >
+                    <span className="text-xl">{g.icon}</span>
+                    <span className="text-sm font-medium">{g.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Options */}
+          <Card className="shadow-soft">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Options</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Unit</Label>
                   <Select value={unit} onValueChange={(v) => setUnit(v as MeasurementUnit)}>
@@ -261,7 +408,7 @@ export default function NewMeasurement() {
 
                 <div className="space-y-2">
                   <Label>Fit Preference</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {(['SLIM', 'REGULAR', 'LOOSE'] as FitType[]).map((f) => (
                       <button
                         key={f}

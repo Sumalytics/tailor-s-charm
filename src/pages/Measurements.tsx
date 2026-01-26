@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -11,29 +11,13 @@ import {
   Plus,
   User,
   Shirt,
+  Eye,
 } from 'lucide-react';
-import { GarmentType, FitType } from '@/types';
+import { GarmentType, FitType, Measurement } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { getCollection } from '@/firebase/firestore';
 import { cn } from '@/lib/utils';
-
-interface MeasurementRecord {
-  id: string;
-  customerName: string;
-  name: string;
-  garmentType: GarmentType;
-  fit: FitType;
-  usageCount: number;
-  lastUsed: string;
-  createdAt: string;
-}
-
-const mockMeasurements: MeasurementRecord[] = [
-  { id: '1', customerName: 'James Wilson', name: 'Business Suit', garmentType: 'SUIT', fit: 'REGULAR', usageCount: 4, lastUsed: '2024-01-20', createdAt: '2023-06-15' },
-  { id: '2', customerName: 'James Wilson', name: 'Casual Shirt', garmentType: 'SHIRT', fit: 'SLIM', usageCount: 3, lastUsed: '2024-01-18', createdAt: '2023-08-22' },
-  { id: '3', customerName: 'Sarah Johnson', name: 'Evening Dress', garmentType: 'DRESS', fit: 'REGULAR', usageCount: 2, lastUsed: '2024-01-16', createdAt: '2023-10-10' },
-  { id: '4', customerName: 'Michael Brown', name: 'Wedding Suit', garmentType: 'SUIT', fit: 'SLIM', usageCount: 1, lastUsed: '2024-01-22', createdAt: '2024-01-05' },
-  { id: '5', customerName: 'Emily Davis', name: 'Office Blouse', garmentType: 'BLOUSE', fit: 'REGULAR', usageCount: 5, lastUsed: '2024-01-19', createdAt: '2023-04-20' },
-  { id: '6', customerName: 'David Miller', name: 'Dress Trousers', garmentType: 'TROUSERS', fit: 'LOOSE', usageCount: 6, lastUsed: '2024-01-21', createdAt: '2023-03-15' },
-];
+import { useToast } from '@/hooks/use-toast';
 
 const garmentLabels: Record<GarmentType, string> = {
   SHIRT: 'Shirt',
@@ -51,22 +35,70 @@ const fitLabels: Record<FitType, { label: string; className: string }> = {
   LOOSE: { label: 'Loose', className: 'bg-warning/10 text-warning border-warning/20' },
 };
 
-const measurementTemplates = [
-  { type: 'SHIRT', label: "Men's Shirt", icon: Shirt, fields: 8, onClick: () => {} },
-  { type: 'TROUSERS', label: "Men's Trousers", icon: Ruler, fields: 8, onClick: () => {} },
-  { type: 'SUIT', label: "Men's Suit", icon: User, fields: 10, onClick: () => {} },
-  { type: 'DRESS', label: "Women's Dress", icon: Shirt, fields: 8, onClick: () => {} },
-];
-
 export default function Measurements() {
   const navigate = useNavigate();
+  const { shopId } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredMeasurements = mockMeasurements.filter(
-    (m) =>
-      m.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.name.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    if (shopId) {
+      loadMeasurements();
+    }
+  }, [shopId]);
+
+  const loadMeasurements = async () => {
+    if (!shopId) return;
+
+    setLoading(true);
+    try {
+      console.log('Loading measurements for shopId:', shopId);
+      const measurementsData = await getCollection<Measurement>('measurements', [
+        { field: 'shopId', operator: '==', value: shopId }
+      ]);
+      
+      console.log('Raw measurements data from Firestore:', measurementsData);
+      
+      // Sort by creation date (newest first)
+      const sortedMeasurements = measurementsData.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      console.log('Sorted measurements:', sortedMeasurements);
+      setMeasurements(sortedMeasurements);
+    } catch (error) {
+      console.error('Error loading measurements:', error);
+      toast({
+        title: 'Error loading measurements',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredMeasurements = measurements.filter(
+    (measurement) =>
+      measurement.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      measurement.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleQuickView = (measurement: Measurement) => {
+    // Show key measurements in a toast for quick implementation
+    const keyMeasurements = Object.entries(measurement.measurements)
+      .slice(0, 5) // Show first 5 measurements
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    
+    toast({
+      title: `${measurement.name} - Quick View`,
+      description: `${measurement.garmentType} • ${measurement.fit}\n${keyMeasurements}`,
+      duration: 5000,
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -83,28 +115,6 @@ export default function Measurements() {
             <Plus className="h-4 w-4" />
             Add Measurement
           </Button>
-        </div>
-
-        {/* Templates Grid */}
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Quick Templates</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {measurementTemplates.map((template) => (
-              <Card
-                key={template.type}
-                className="shadow-soft cursor-pointer hover:shadow-md hover:border-primary/50 transition-all"
-                onClick={() => navigate('/measurements/new')}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <template.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="font-medium text-sm">{template.label}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{template.fields} measurements</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </div>
 
         {/* Recent Measurements */}
@@ -153,11 +163,27 @@ export default function Measurements() {
                   </div>
                   <div className="text-right hidden sm:block">
                     <div className="text-sm font-medium">
-                      Used {measurement.usageCount} time{measurement.usageCount > 1 ? 's' : ''}
+                      {measurement.usageCount ? `Used ${measurement.usageCount} time${measurement.usageCount > 1 ? 's' : ''}` : 'Not used yet'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Last: {measurement.lastUsed}
+                      Created: {new Date(measurement.createdAt).toLocaleDateString()}
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleQuickView(measurement)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Quick View
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/measurements/${measurement.id}`)}
+                    >
+                      View Details
+                    </Button>
                   </div>
                 </div>
               ))}

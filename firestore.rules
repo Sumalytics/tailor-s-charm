@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is super admin
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.admin == true;
+    }
+    
+    // Helper function to check if user owns the shop
+    function isShopOwner(shopId) {
+      return isAuthenticated() && 
+             request.auth.uid == shopId;
+    }
+    
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Shops collection - shop owners can manage their shops
+    match /shops/{shopId} {
+      allow read: if isShopOwner(shopId) || isSuperAdmin();
+      allow write: if isShopOwner(shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(shopId);
+    }
+    
+    // Customers collection - shop owners can manage their customers
+    match /customers/{customerId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Orders collection - shop owners can manage their orders
+    match /orders/{orderId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Measurements collection - shop owners can manage their measurements
+    match /measurements/{measurementId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Payments collection - shop owners can manage their payments
+    match /payments/{paymentId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Debts collection - shop owners can manage their debts
+    match /debts/{debtId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Subscriptions collection - shop owners can read their subscriptions, super admins can manage all
+    match /subscriptions/{subscriptionId} {
+      allow read: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow write: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+    }
+    
+    // Billing Plans collection - only super admins can manage
+    match /plans/{planId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Team Invitations collection - shop owners can manage their invitations
+    match /teamInvitations/{invitationId} {
+      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+    }
+    
+    // Notification Settings collection - users can manage their own settings
+    match /notificationSettings/{settingsId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

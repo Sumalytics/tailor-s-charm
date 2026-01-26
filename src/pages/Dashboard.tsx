@@ -1,16 +1,70 @@
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentOrders } from '@/components/dashboard/RecentOrders';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Users, ShoppingBag, Clock, DollarSign } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getDashboardStats, getOrdersByShop } from '@/firebase/firestore';
+import { DashboardStats, Order } from '@/types';
+import { formatCurrency } from '@/lib/currency';
 
 export default function Dashboard() {
+  const { currentUser, shopId } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (shopId) {
+      loadDashboardData();
+    }
+  }, [shopId]);
+
+  const loadDashboardData = async () => {
+    if (!shopId) return;
+
+    setLoading(true);
+    try {
+      const [dashboardStats, orders] = await Promise.all([
+        getDashboardStats(shopId),
+        getOrdersByShop(shopId)
+      ]);
+
+      setStats(dashboardStats);
+      setRecentOrders(orders.slice(0, 5)); // Get 5 most recent orders
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 lg:p-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-8">
         {/* Header */}
         <div className="animate-slide-up">
-          <h1 className="text-2xl lg:text-3xl font-bold">Welcome back, John! 👋</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold">
+            Welcome back, {currentUser?.displayName || 'User'}! 👋
+          </h1>
           <p className="text-muted-foreground mt-1">Here's what's happening with your shop today.</p>
         </div>
 
@@ -18,39 +72,39 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <StatCard
             title="Total Customers"
-            value="1,248"
+            value={stats?.totalCustomers.toLocaleString() || '0'}
             icon={Users}
             variant="primary"
-            trend={{ value: 12, isPositive: true }}
           />
           <StatCard
             title="Active Orders"
-            value="42"
+            value={stats?.totalOrders.toLocaleString() || '0'}
             icon={ShoppingBag}
             variant="info"
-            description="8 due this week"
+            description={`${stats?.pendingOrders || 0} pending`}
           />
           <StatCard
             title="Pending Payments"
-            value="$3,420"
+            value={formatCurrency(stats?.pendingPayments || 0)}
             icon={Clock}
             variant="warning"
-            description="From 15 orders"
           />
           <StatCard
-            title="Monthly Revenue"
-            value="$24,680"
+            title="Total Revenue"
+            value={formatCurrency(stats?.totalRevenue || 0)}
             icon={DollarSign}
             variant="success"
-            trend={{ value: 8, isPositive: true }}
           />
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <RecentOrders />
+        <div className="space-y-6">
+          {/* Recent Orders */}
+          <div>
+            <RecentOrders orders={recentOrders} onRefresh={loadDashboardData} />
           </div>
+
+          {/* Quick Actions */}
           <div>
             <QuickActions />
           </div>

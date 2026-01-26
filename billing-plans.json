@@ -1,0 +1,69 @@
+[
+  {
+    "name": "Free Trial",
+    "type": "FREE",
+    "price": 0,
+    "currency": "GHS",
+    "billingCycle": "DAILY",
+    "features": [
+      "Full access to all features",
+      "Customer management",
+      "Order tracking",
+      "Measurement management",
+      "Payment tracking",
+      "Inventory management",
+      "Mobile app access",
+      "Basic support"
+    ],
+    "limits": {
+      "customers": 50,
+      "orders": 100,
+      "teamMembers": 3,
+      "storage": 500
+    },
+    "isActive": true,
+    "createdAt": {
+      "_seconds": 1737892800,
+      "_nanoseconds": 0
+    },
+    "updatedAt": {
+      "_seconds": 1737892800,
+      "_nanoseconds": 0
+    }
+  },
+  {
+    "name": "Standard Plan",
+    "type": "PROFESSIONAL",
+    "price": 43,
+    "currency": "GHS",
+    "billingCycle": "MONTHLY",
+    "features": [
+      "Full access to all features",
+      "Customer management",
+      "Order tracking",
+      "Measurement management",
+      "Payment tracking",
+      "Inventory management",
+      "Mobile app access",
+      "Priority support",
+      "Advanced reporting",
+      "Data export",
+      "Custom branding"
+    ],
+    "limits": {
+      "customers": 200,
+      "orders": 500,
+      "teamMembers": 5,
+      "storage": 2000
+    },
+    "isActive": true,
+    "createdAt": {
+      "_seconds": 1737892800,
+      "_nanoseconds": 0
+    },
+    "updatedAt": {
+      "_seconds": 1737892800,
+      "_nanoseconds": 0
+    }
+  }
+]

@@ -8,9 +8,71 @@ export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 
 export type GarmentType = 'SHIRT' | 'TROUSERS' | 'SUIT' | 'DRESS' | 'SKIRT' | 'BLOUSE' | 'JACKET';
 
-export type MeasurementUnit = 'INCHES' | 'CENTIMETERS';
+export type MeasurementUnit = 'CM' | 'INCHES';
 
-export type FitType = 'REGULAR' | 'SLIM' | 'LOOSE';
+export type FitType = 'SLIM' | 'REGULAR' | 'LOOSE';
+
+export type Currency = 'GHS' | 'USD' | 'EUR' | 'GBP';
+
+export type BillingPlanType = 'FREE' | 'PROFESSIONAL' | 'ENTERPRISE';
+
+export type BillingCycle = 'DAILY' | 'MONTHLY' | 'YEARLY';
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  type: BillingPlanType;
+  price: number;
+  currency: Currency;
+  billingCycle: BillingCycle;
+  features: string[];
+  limits: {
+    customers: number;
+    orders: number;
+    teamMembers: number;
+    storage: number; // in MB
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Subscription {
+  id: string;
+  shopId: string;
+  planId: string;
+  plan: BillingPlan;
+  status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIAL';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  billingCycle: BillingCycle;
+  cancelledAt?: Date;
+  trialEndsAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface NotificationSettings {
+  id: string;
+  userId: string;
+  shopId: string;
+  emailNotifications: {
+    newOrders: boolean;
+    payments: boolean;
+    orderReminders: boolean;
+    lowInventory: boolean;
+    customerMessages: boolean;
+    marketing: boolean;
+  };
+  pushNotifications: {
+    newOrders: boolean;
+    payments: boolean;
+    orderReminders: boolean;
+    lowInventory: boolean;
+    customerMessages: boolean;
+  };
+  updatedAt: Date;
+}
 
 export interface User {
   uid: string;
@@ -31,8 +93,16 @@ export interface Shop {
   address?: string;
   phone?: string;
   email?: string;
+  logoUrl?: string;
   ownerId: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  currency: Currency;
+  subscription?: {
+    planId: string;
+    status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+    currentPeriodEnd: Date;
+    billingCycle: 'MONTHLY' | 'YEARLY';
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,30 +110,33 @@ export interface Shop {
 export interface Customer {
   id: string;
   shopId: string;
-  fullName: string;
-  phoneNumber: string;
+  name: string;
+  phone?: string;
   email?: string;
   address?: string;
   notes?: string;
+  isActive?: boolean;
   createdAt: Date;
   createdBy: string;
-  lastUpdatedAt: Date;
-  lastUpdatedBy: string;
+  updatedAt?: Date;
+  updatedBy?: string;
 }
 
 export interface Measurement {
   id: string;
   customerId: string;
+  customerName: string;
   shopId: string;
   name: string;
-  values: Record<string, number>;
   garmentType: GarmentType;
   unit: MeasurementUnit;
   fit: FitType;
+  measurements: Record<string, number>;
   notes?: string;
   createdAt: Date;
   createdBy: string;
-  usageCount: number;
+  updatedAt?: Date;
+  usageCount?: number;
 }
 
 export interface OrderItem {
@@ -82,20 +155,16 @@ export interface Order {
   shopId: string;
   customerId: string;
   customerName: string;
-  orderNumber: string;
-  items: OrderItem[];
-  totalAmount: number;
-  amountPaid: number;
-  balanceDue: number;
+  description: string;
+  amount: number;
+  paidAmount?: number;
   status: OrderStatus;
-  startDate: Date;
-  dueDate: Date;
-  completedDate?: Date;
+  dueDate?: Date;
+  currency: Currency;
   notes?: string;
   createdAt: Date;
+  updatedAt?: Date;
   createdBy: string;
-  lastUpdatedAt: Date;
-  lastUpdatedBy: string;
 }
 
 export interface Payment {
@@ -104,14 +173,90 @@ export interface Payment {
   customerId: string;
   orderId?: string;
   amount: number;
-  currency: string;
+  currency: Currency;
   type: 'ORDER_PAYMENT' | 'ADVANCE' | 'REFUND';
   method: PaymentMethod;
   status: PaymentStatus;
   transactionId?: string;
   notes?: string;
+  receiptUrl?: string;
   createdAt: Date;
   createdBy: string;
+}
+
+export interface Debt {
+  id: string;
+  shopId: string;
+  customerId: string;
+  customerName: string;
+  orderId: string;
+  orderDescription: string;
+  originalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  currency: Currency;
+  dueDate?: Date;
+  status: 'ACTIVE' | 'PARTIALLY_PAID' | 'PAID' | 'WRITTEN_OFF';
+  orderCompletedDate: Date;
+  createdAt: Date;
+  updatedAt?: Date;
+  notes?: string;
+}
+
+export interface Receipt {
+  id: string;
+  shopId: string;
+  orderId: string;
+  paymentId: string;
+  receiptNumber: string;
+  customerName: string;
+  items: ReceiptItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  currency: Currency;
+  paymentMethod: PaymentMethod;
+  printedAt?: Date;
+  createdAt: Date;
+  createdBy: string;
+}
+
+export interface ReceiptItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface Invoice {
+  id: string;
+  shopId: string;
+  orderId: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerAddress?: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  currency: Currency;
+  dueDate: Date;
+  status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE';
+  notes?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
+export interface InvoiceItem {
+  description: string;
+  garmentType: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
 }
 
 export interface DashboardStats {

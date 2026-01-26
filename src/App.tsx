@@ -1,43 +1,234 @@
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ReactQueryProvider } from "@/lib/react-query";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { SubscriptionWrapper } from "@/contexts/SubscriptionWrapper";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ProtectedRouteComponent from "@/components/auth/ProtectedRoute";
+import DashboardRouter from "@/components/DashboardRouter";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import SeedPlans from "./pages/SeedPlans";
+import TestBillingPlans from "./pages/TestBillingPlans";
+import AuthCheck from "./pages/AuthCheck";
+import TestPaystack from "./pages/TestPaystack";
+import TestUpgradeButton from "./pages/TestUpgradeButton";
+import TestBillingPlansDebug from "./pages/TestBillingPlansDebug";
+import QuickSeedPlans from "./pages/QuickSeedPlans";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import ResetPassword from "./pages/ResetPassword";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Customers from "./pages/Customers";
+import NewCustomer from "./pages/NewCustomer";
+import EditCustomer from "./pages/EditCustomer";
+import CustomerDetail from "./pages/CustomerDetail";
 import NewMeasurement from "./pages/NewMeasurement";
+import MeasurementDetail from "./pages/MeasurementDetail";
 import Orders from "./pages/Orders";
+import NewOrder from "./pages/NewOrder";
+import OrderDetail from "./pages/OrderDetail";
+import EditOrder from "./pages/EditOrder";
+import InvoiceGenerator from "./pages/InvoiceGenerator";
+import PublicInvoice from "./pages/PublicInvoice";
 import Payments from "./pages/Payments";
+import NewPayment from "./pages/NewPayment";
+import Debts from "./pages/Debts";
 import Measurements from "./pages/Measurements";
 import Settings from "./pages/Settings";
+import ShopSetup from "./pages/ShopSetup";
+import AuthTest from "./pages/AuthTest";
+import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
+import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
+import { BannerProvider } from "@/contexts/BannerContext";
 
-const queryClient = new QueryClient();
+const App = () => {
+  const handleRetry = () => {
+    window.location.reload();
+  };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/payments" element={<Payments />} />
-          <Route path="/measurements" element={<Measurements />} />
-          <Route path="/measurements/new" element={<NewMeasurement />} />
-          <Route path="/settings" element={<Settings />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  return (
+    <ErrorBoundary>
+      <ReactQueryProvider>
+        <BannerProvider>
+          <AuthProvider>
+            <SubscriptionWrapper>
+              <div className="relative">
+                <OfflineBanner onRetry={handleRetry} />
+                <Toaster />
+                <Sonner />
+                <Router>
+                  <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/seed-plans" element={<SeedPlans />} />
+                  <Route path="/test-billing" element={<TestBillingPlans />} />
+                  <Route path="/test-paystack" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <TestPaystack />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/test-upgrade" element={<TestUpgradeButton />} />
+                  <Route path="/test-billing-debug" element={<TestBillingPlansDebug />} />
+                  <Route path="/quick-seed" element={<QuickSeedPlans />} />
+                  <Route path="/payment/success" element={<PaymentSuccess />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <DashboardRouter />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/shop-setup" element={
+                    <ProtectedRoute>
+                      <ShopSetup />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/customers" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Customers />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/customers/new" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <NewCustomer />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/customers/:id/edit" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <EditCustomer />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/customers/:id" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <CustomerDetail />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Orders />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders/new" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <NewOrder />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders/:id" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <OrderDetail />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orders/:id/edit" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <EditOrder />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/invoices" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <InvoiceGenerator />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/invoices/:id" element={
+                    <ProtectedRoute>
+                      <PublicInvoice />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/payments" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Payments />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/payments/new" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <NewPayment />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/debts" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Debts />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/measurements" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Measurements />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/measurements/new" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <NewMeasurement />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/measurements/:id" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <MeasurementDetail />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/settings" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Settings />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin" element={
+                    <ProtectedAdminRoute>
+                      <SuperAdminDashboard />
+                    </ProtectedAdminRoute>
+                  } />
+                  <Route path="/auth-test" element={<AuthTest />} />
+                  <Route path="/unauthorized" element={<Unauthorized />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Router>
+            </div>
+          </SubscriptionWrapper>
+        </AuthProvider>
+      </BannerProvider>
+    </ReactQueryProvider>
+  </ErrorBoundary>
+  );
+};
 
 export default App;

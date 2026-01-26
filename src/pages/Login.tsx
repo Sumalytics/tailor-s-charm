@@ -1,41 +1,171 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Scissors, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { signIn, signInWithGoogle, resetPassword } from '@/firebase/auth';
+import { useAuth } from '@/contexts/AuthContext';
+import logo from '@/assets/logo.png';
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentUser, shopId } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Redirect if already logged in
+  useEffect(() => {
+    console.log('Login useEffect - currentUser:', currentUser);
+    console.log('Login useEffect - shopId:', shopId);
+    console.log('Login useEffect - userRole:', currentUser?.role);
+    
+    if (currentUser) {
+      // Check for SUPER_ADMIN first - they don't need a shop
+      if (currentUser.role === 'SUPER_ADMIN') {
+        console.log('Redirecting SUPER_ADMIN to admin dashboard...');
+        navigate('/admin');
+        return;
+      }
+      
+      if (shopId) {
+        // User has a shop, go to dashboard
+        console.log('Redirecting to dashboard...');
+        navigate('/dashboard');
+      } else {
+        // User doesn't have a shop, check role
+        if (currentUser.role === 'ADMIN') {
+          // Admin users need to set up their shop first
+          console.log('Redirecting ADMIN to shop setup...');
+          navigate('/shop-setup');
+        } else {
+          // Staff users without shop need to wait for admin assignment
+          console.log('Redirecting staff to unauthorized...');
+          navigate('/unauthorized');
+        }
+      }
+    }
+  }, [currentUser, shopId, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login - replace with actual Firebase auth
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const result = await signIn(email, password);
+      
+      if (result.success) {
+        toast({
+          title: 'Welcome back!',
+          description: 'You have successfully signed in.',
+        });
+        // Navigation will be handled by the useEffect hook
+      } else {
+        toast({
+          title: 'Sign in failed',
+          description: result.error,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
       toast({
-        title: 'Welcome back!',
-        description: 'You have successfully signed in.',
+        title: 'Sign in failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
       });
-      navigate('/dashboard');
-    }, 1000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    toast({
-      title: 'Coming soon',
-      description: 'Google sign-in will be available soon.',
-    });
+  const handleGoogleLogin = async () => {
+    console.log('Google login button clicked');
+    setIsLoading(true);
+    
+    try {
+      const result = await signInWithGoogle();
+      
+      if (result.success) {
+        toast({
+          title: 'Welcome!',
+          description: 'You have successfully signed in with Google.',
+        });
+        // Navigation will be handled by the useEffect hook
+      } else {
+        console.log('Google login failed:', result.error);
+        
+        // Check if it's a network-related issue vs user cancellation
+        const isNetworkError = result.error.toLowerCase().includes('network') || 
+                              result.error.toLowerCase().includes('connection') ||
+                              result.error.toLowerCase().includes('internet');
+        
+        const isUserAction = result.error.toLowerCase().includes('cancelled') ||
+                            result.error.toLowerCase().includes('blocked');
+        
+        if (isNetworkError) {
+          // Network errors get destructive toast
+          toast({
+            title: 'Connection Error',
+            description: result.error,
+            variant: 'destructive',
+          });
+        } else if (isUserAction) {
+          // User actions get neutral toast
+          toast({
+            title: 'Sign-in Interrupted',
+            description: result.error,
+            variant: 'default',
+          });
+        } else {
+          // Other errors get destructive toast
+          toast({
+            title: 'Google sign-in failed',
+            description: result.error,
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error in Google login:', error);
+      toast({
+        title: 'Google sign-in failed',
+        description: 'An unexpected error occurred. Please try again or use email sign-in.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({
+        title: 'Email required',
+        description: 'Please enter your email address to reset password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await resetPassword(email);
+    
+    if (result.success) {
+      toast({
+        title: 'Password reset email sent',
+        description: 'Check your email for password reset instructions.',
+      });
+    } else {
+      toast({
+        title: 'Password reset failed',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -44,8 +174,12 @@ export default function Login() {
       <div className="hidden lg:flex lg:w-1/2 bg-sidebar items-center justify-center p-12">
         <div className="max-w-md text-center animate-fade-in">
           <div className="flex justify-center mb-8">
-            <div className="h-20 w-20 rounded-2xl bg-sidebar-primary flex items-center justify-center shadow-glow">
-              <Scissors className="h-10 w-10 text-sidebar-primary-foreground" />
+            <div className="h-20 w-20 rounded-2xl bg-sidebar-primary flex items-center justify-center shadow-glow overflow-hidden">
+              <img 
+                src={logo} 
+                alt="TailorFlow Logo" 
+                className="h-16 w-16 object-contain"
+              />
             </div>
           </div>
           <h1 className="text-4xl font-bold text-sidebar-foreground mb-4">TailorFlow</h1>
@@ -74,8 +208,12 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="flex lg:hidden justify-center mb-8">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-                <Scissors className="h-6 w-6 text-primary-foreground" />
+              <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center overflow-hidden">
+                <img 
+                  src={logo} 
+                  alt="TailorFlow Logo" 
+                  className="h-10 w-10 object-contain"
+                />
               </div>
               <span className="text-2xl font-bold">TailorFlow</span>
             </div>
@@ -139,6 +277,12 @@ export default function Login() {
                 </Button>
               </form>
 
+              <p className="text-center text-sm text-muted-foreground mt-4">
+                <Link to="/forgot-password" className="text-primary hover:underline">
+                  Forgot your password?
+                </Link>
+              </p>
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border" />
@@ -175,12 +319,14 @@ export default function Login() {
                 Continue with Google
               </Button>
 
-              <p className="text-center text-sm text-muted-foreground mt-6">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-primary font-medium hover:underline">
-                  Sign up
-                </Link>
-              </p>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Don't have an account?{' '}
+                  <Link to="/register" className="text-primary font-medium hover:underline">
+                    Sign up
+                  </Link>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

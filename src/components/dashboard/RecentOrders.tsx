@@ -1,24 +1,21 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { OrderStatus } from '@/types';
+import { OrderStatus, Order } from '@/types';
+import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
-interface RecentOrder {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  status: OrderStatus;
-  amount: number;
-  dueDate: string;
-}
+// Safe date conversion utility
+const safeDate = (date: any): Date => {
+  if (!date) return new Date();
+  if (date instanceof Date) return date;
+  if (typeof date === 'object' && date.toDate) return date.toDate();
+  return new Date(date);
+};
 
-const mockOrders: RecentOrder[] = [
-  { id: '1', orderNumber: 'ORD-001', customerName: 'James Wilson', status: 'IN_PROGRESS', amount: 250, dueDate: '2024-01-28' },
-  { id: '2', orderNumber: 'ORD-002', customerName: 'Sarah Johnson', status: 'PENDING', amount: 180, dueDate: '2024-01-30' },
-  { id: '3', orderNumber: 'ORD-003', customerName: 'Michael Brown', status: 'COMPLETED', amount: 420, dueDate: '2024-01-25' },
-  { id: '4', orderNumber: 'ORD-004', customerName: 'Emily Davis', status: 'IN_PROGRESS', amount: 350, dueDate: '2024-02-01' },
-  { id: '5', orderNumber: 'ORD-005', customerName: 'David Miller', status: 'PENDING', amount: 290, dueDate: '2024-02-03' },
-];
+interface RecentOrdersProps {
+  orders?: Order[];
+  onRefresh?: () => Promise<void>;
+}
 
 const statusStyles: Record<OrderStatus, { label: string; className: string }> = {
   PENDING: { label: 'Pending', className: 'bg-warning/10 text-warning border-warning/20' },
@@ -27,7 +24,7 @@ const statusStyles: Record<OrderStatus, { label: string; className: string }> = 
   CANCELLED: { label: 'Cancelled', className: 'bg-destructive/10 text-destructive border-destructive/20' },
 };
 
-export function RecentOrders() {
+export function RecentOrders({ orders = [], onRefresh }: RecentOrdersProps) {
   return (
     <Card className="shadow-soft">
       <CardHeader>
@@ -35,33 +32,49 @@ export function RecentOrders() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {mockOrders.map((order) => (
-            <div
-              key={order.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary">
-                    {order.customerName.split(' ').map(n => n[0]).join('')}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium text-sm">{order.customerName}</p>
-                  <p className="text-xs text-muted-foreground">{order.orderNumber}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <Badge variant="outline" className={cn('font-medium', statusStyles[order.status].className)}>
-                  {statusStyles[order.status].label}
-                </Badge>
-                <div className="text-right">
-                  <p className="font-semibold text-sm">${order.amount}</p>
-                  <p className="text-xs text-muted-foreground">Due: {order.dueDate}</p>
-                </div>
-              </div>
+          {orders.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No recent orders</p>
             </div>
-          ))}
+          ) : (
+            orders.map((order) => (
+              <div
+                key={order.id}
+                className="p-3 rounded-lg border bg-card/50 transition-colors hover:bg-card"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  {/* Customer Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <div>
+                        <p className="font-medium text-sm sm:text-base">{order.customerName}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">#{order.id.slice(-6)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Order Details */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <div className="text-right sm:text-left">
+                      <p className="font-medium text-sm sm:text-base">{formatCurrency(order.amount, order.currency)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Due: {order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border-current/20 font-medium text-xs sm:text-sm',
+                        statusStyles[order.status].className
+                      )}
+                    >
+                      {statusStyles[order.status].label}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </CardContent>
     </Card>
