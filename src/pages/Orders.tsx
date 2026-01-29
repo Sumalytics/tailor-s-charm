@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCollection } from '@/firebase/firestore';
-import { Order, Customer, Payment } from '@/types';
+import { Order, Customer, Payment, Measurement } from '@/types';
 import {
   Table,
   TableBody,
@@ -41,6 +41,7 @@ import {
   TrendingUp,
   Users,
   DollarSign,
+  Ruler,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -67,6 +68,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [measurementsByCustomer, setMeasurementsByCustomer] = useState<Record<string, Measurement[]>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
 
@@ -95,6 +97,17 @@ export default function Orders() {
         { field: 'shopId', operator: '==', value: shopId }
       ]);
 
+      // Load measurements for shop (group by customerId)
+      const measurementsList = await getCollection<Measurement>('measurements', [
+        { field: 'shopId', operator: '==', value: shopId }
+      ]);
+      const byCustomer: Record<string, Measurement[]> = {};
+      for (const m of measurementsList) {
+        if (!byCustomer[m.customerId]) byCustomer[m.customerId] = [];
+        byCustomer[m.customerId].push(m);
+      }
+      setMeasurementsByCustomer(byCustomer);
+
       setOrders(ordersList.sort((a, b) => 
         safeDate(b.createdAt).getTime() - safeDate(a.createdAt).getTime()
       ));
@@ -116,6 +129,10 @@ export default function Orders() {
   const getCustomerName = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
     return customer?.name || 'Unknown Customer';
+  };
+
+  const getMeasurementCount = (customerId: string) => {
+    return measurementsByCustomer[customerId]?.length ?? 0;
   };
 
   const getOrderPayments = (orderId: string) => {
@@ -448,8 +465,14 @@ export default function Orders() {
                           <TableCell>
                             <div>
                               <div className="font-medium">{customerName}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {safeDate(order.createdAt).toLocaleDateString()}
+                              <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                <span>{safeDate(order.createdAt).toLocaleDateString()}</span>
+                                {getMeasurementCount(order.customerId) > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-xs">
+                                    <Ruler className="h-3 w-3" />
+                                    {getMeasurementCount(order.customerId)} measurement{getMeasurementCount(order.customerId) === 1 ? '' : 's'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </TableCell>

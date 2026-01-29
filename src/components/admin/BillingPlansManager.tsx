@@ -44,6 +44,14 @@ const defaultFormData: PlanFormData = {
   isActive: true,
 };
 
+/** Normalize plan.features to string[] (Firestore may return array or object). */
+function getFeaturesArray(plan: BillingPlan): string[] {
+  if (Array.isArray(plan.features)) return plan.features;
+  if (plan.features && typeof plan.features === 'object')
+    return Object.values(plan.features).filter((v): v is string => typeof v === 'string');
+  return [];
+}
+
 export function BillingPlansManager() {
   const { toast } = useToast();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -184,7 +192,7 @@ export function BillingPlansManager() {
       currency: plan.currency,
       billingCycle: plan.billingCycle,
       type: plan.type,
-      features: plan.features,
+      features: getFeaturesArray(plan),
       limits: plan.limits,
       isActive: plan.isActive,
     });
@@ -455,7 +463,7 @@ export function BillingPlansManager() {
                   </div>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {plans.map((plan) => {
-                      console.log('Rendering plan:', plan);
+                      const featuresList = getFeaturesArray(plan);
                       return (
                         <Card key={plan.id} className="relative">
                           <CardContent className="p-6">
@@ -478,15 +486,15 @@ export function BillingPlansManager() {
                                 <div className="mb-3">
                                   <h5 className="font-medium mb-2">Features:</h5>
                                   <ul className="space-y-1">
-                                    {plan.features?.slice(0, 3).map((feature, index) => (
+                                    {featuresList.slice(0, 3).map((feature, index) => (
                                       <li key={index} className="flex items-center gap-2 text-sm">
                                         <Check className="h-3 w-3 text-green-600" />
                                         {feature}
                                       </li>
                                     ))}
-                                    {plan.features?.length > 3 && (
+                                    {featuresList.length > 3 && (
                                       <li className="text-sm text-muted-foreground">
-                                        +{plan.features.length - 3} more features
+                                        +{featuresList.length - 3} more features
                                       </li>
                                     )}
                                   </ul>

@@ -40,6 +40,7 @@ import PublicInvoice from "./pages/PublicInvoice";
 import Payments from "./pages/Payments";
 import NewPayment from "./pages/NewPayment";
 import Debts from "./pages/Debts";
+import ShopAnalytics from "./pages/ShopAnalytics";
 import Measurements from "./pages/Measurements";
 import Settings from "./pages/Settings";
 import ShopSetup from "./pages/ShopSetup";
@@ -153,6 +154,13 @@ const App = () => {
                       </ProtectedRouteComponent>
                     </ProtectedRoute>
                   } />
+                  <Route path="/orders/:id/invoice" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <InvoiceGenerator />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
                   <Route path="/invoices" element={
                     <ProtectedRoute>
                       <ProtectedRouteComponent>
@@ -183,6 +191,13 @@ const App = () => {
                     <ProtectedRoute>
                       <ProtectedRouteComponent>
                         <Debts />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/analytics" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <ShopAnalytics />
                       </ProtectedRouteComponent>
                     </ProtectedRoute>
                   } />

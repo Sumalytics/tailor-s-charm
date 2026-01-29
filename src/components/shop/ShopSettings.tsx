@@ -85,12 +85,12 @@ export function ShopSettings() {
         await updateDocument('users', currentUser.uid, { shopId: savedShopId });
         await refreshUser();
         
-        // Start 3-day local trial for new shop (no Firebase)
+        // Start 30-day local trial for new shop (no Firebase)
         initLocalTrial(savedShopId);
         
         toast({
           title: 'Shop created successfully!',
-          description: 'Your shop has been created with a 3-day free trial.',
+          description: 'Your shop has been created with a 30-day free trial.',
         });
       }
 

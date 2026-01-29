@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,14 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCollection, addDocument, updateDocument, getDebtsByShop, updateDebtPayment } from '@/firebase/firestore';
 import { Order, Payment, PaymentMethod, Currency, Debt } from '@/types';
-import { ArrowLeft, Save, CreditCard, DollarSign, Calendar } from 'lucide-react';
+import { ArrowLeft, Save, CreditCard, DollarSign, Calendar, Info } from 'lucide-react';
 
 export default function NewPayment() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderIdFromUrl = searchParams.get('orderId');
   const { currentUser, shopId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -33,7 +36,7 @@ export default function NewPayment() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [shopId]);
 
   const loadOrders = async () => {
     if (!shopId) return;
@@ -45,37 +48,25 @@ export default function NewPayment() {
         { field: 'status', operator: 'in', value: ['PENDING', 'IN_PROGRESS'] }
       ]);
 
-      // Load completed orders with outstanding debts
-      const debts = await getDebtsByShop(shopId);
-      const debtOrderIds = debts.map(debt => debt.orderId);
-      
-      let completedOrdersWithDebts: Order[] = [];
-      if (debtOrderIds.length > 0) {
-        completedOrdersWithDebts = await getCollection<Order>('orders', [
-          { field: 'shopId', operator: '==', value: shopId },
-          { field: 'status', operator: '==', value: 'COMPLETED' },
-          { field: 'id', operator: 'in', value: debtOrderIds }
-        ]);
-      }
-
-      // Also load completed orders that have outstanding balances but no debt records (fallback)
+      // Load all completed orders, then keep only those with outstanding balance
+      // (completed orders can still receive payments — Ghana: tailors accept debt payments on finished orders)
       const allCompletedOrders = await getCollection<Order>('orders', [
         { field: 'shopId', operator: '==', value: shopId },
         { field: 'status', operator: '==', value: 'COMPLETED' }
       ]);
 
-      const completedOrdersWithOutstandingBalance = allCompletedOrders.filter(order => {
-        const hasOutstandingBalance = (order.amount - (order.paidAmount || 0)) > 0;
-        const alreadyIncluded = debtOrderIds.includes(order.id);
-        return hasOutstandingBalance && !alreadyIncluded;
-      });
+      const completedWithBalance = allCompletedOrders.filter(
+        (order) => (order.amount - (order.paidAmount || 0)) > 0
+      );
 
-      // Combine all lists
-      const allOrders = [...activeOrders, ...completedOrdersWithDebts, ...completedOrdersWithOutstandingBalance];
-      
-      // Sort by creation date (newest first)
+      // Active orders + completed orders with balance; dedupe by id
+      const byId = new Map<string, Order>();
+      for (const o of [...activeOrders, ...completedWithBalance]) {
+        byId.set(o.id, o);
+      }
+      const allOrders = Array.from(byId.values());
       allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
+
       setOrders(allOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
@@ -88,6 +79,22 @@ export default function NewPayment() {
       setLoadingOrders(false);
     }
   };
+
+  const preselectDone = useRef(false);
+  useEffect(() => {
+    if (loadingOrders || !orderIdFromUrl || orders.length === 0 || preselectDone.current) return;
+    const order = orders.find(o => o.id === orderIdFromUrl);
+    if (order) {
+      setSelectedOrder(order);
+      setFormData(prev => ({
+        ...prev,
+        orderId: orderIdFromUrl,
+        amount: (order.amount - (order.paidAmount || 0)).toString(),
+        currency: order.currency || 'GHS',
+      }));
+      preselectDone.current = true;
+    }
+  }, [loadingOrders, orderIdFromUrl, orders]);
 
   const handleOrderChange = (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
@@ -128,15 +135,21 @@ export default function NewPayment() {
 
       const paymentId = await addDocument('payments', paymentData);
 
-      // Update order with payment information
+      // Update order with payment information (part payments always allowed)
       const newPaidAmount = (selectedOrder.paidAmount || 0) + paymentAmount;
       const isFullyPaid = newPaidAmount >= selectedOrder.amount;
-      
-      await updateDocument('orders', formData.orderId, {
+      const wasCompleted = selectedOrder.status === 'COMPLETED';
+
+      const orderUpdates: Record<string, unknown> = {
         paidAmount: newPaidAmount,
-        status: isFullyPaid ? 'COMPLETED' : 'IN_PROGRESS',
         updatedAt: new Date(),
-      });
+      };
+      // Never downgrade COMPLETED → IN_PROGRESS (Ghana: tailors keep accepting payments on finished orders for debt)
+      if (!wasCompleted) {
+        orderUpdates.status = isFullyPaid ? 'COMPLETED' : 'IN_PROGRESS';
+      }
+
+      await updateDocument('orders', formData.orderId, orderUpdates);
 
       // Update debt record if this order has an outstanding debt
       const debts = await getDebtsByShop(shopId);
@@ -224,10 +237,16 @@ export default function NewPayment() {
           <CardHeader>
             <CardTitle>Payment Information</CardTitle>
             <CardDescription>
-              Record a payment for an existing order.
+              Record a payment for an existing order. Part payments are accepted. You can keep accepting payments even after an order is finished—customers often settle debt over time.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Alert className="border-blue-200 bg-blue-50">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Part payments allowed. Completed orders with outstanding balance remain open for payments until fully settled.
+              </AlertDescription>
+            </Alert>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Order Selection */}
               <div className="space-y-4">

@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDocument, getCollection, updateDocument, createDebtRecord } from '@/firebase/firestore';
-import { Order, Customer, Payment } from '@/types';
+import { getDocument, getCollection, updateDocument, createDebtRecord, getMeasurementsByCustomer } from '@/firebase/firestore';
+import { Order, Customer, Payment, Measurement } from '@/types';
+import type { GarmentType, FitType } from '@/types';
 import {
   ArrowLeft,
   Edit,
@@ -24,6 +25,8 @@ import {
   Mail,
   MapPin,
   TrendingUp,
+  Ruler,
+  Plus,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -35,7 +38,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-// Safe date conversion utility
+const garmentLabels: Record<GarmentType, string> = {
+  SHIRT: 'Shirt',
+  TROUSERS: 'Trousers',
+  SUIT: 'Suit',
+  DRESS: 'Dress',
+  SKIRT: 'Skirt',
+  BLOUSE: 'Blouse',
+  JACKET: 'Jacket',
+};
+
+const fitLabels: Record<FitType, string> = {
+  SLIM: 'Slim',
+  REGULAR: 'Regular',
+  LOOSE: 'Loose',
+};
+
 const safeDate = (date: any): Date => {
   if (!date) return new Date();
   if (date instanceof Date) return date;
@@ -52,6 +70,8 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<Order | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [loadingMeasurements, setLoadingMeasurements] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -90,6 +110,20 @@ export default function OrderDetail() {
       setPayments(paymentsList.sort((a, b) => 
         safeDate(b.createdAt).getTime() - safeDate(a.createdAt).getTime()
       ));
+
+      // Load customer measurements
+      setLoadingMeasurements(true);
+      try {
+        const measurementsList = await getMeasurementsByCustomer(orderData.customerId);
+        setMeasurements(measurementsList.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ));
+      } catch (e) {
+        console.warn('Failed to load customer measurements', e);
+        setMeasurements([]);
+      } finally {
+        setLoadingMeasurements(false);
+      }
 
     } catch (error) {
       console.error('Error loading order:', error);
@@ -417,6 +451,87 @@ export default function OrderDetail() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Customer measurements */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Ruler className="h-5 w-5" />
+                    Customer measurements
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/measurements/new?customerId=${order.customerId}`)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                <CardDescription>
+                  Measurement records for {customer.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingMeasurements ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                  </div>
+                ) : measurements.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Ruler className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No measurements recorded</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => navigate(`/measurements/new?customerId=${order.customerId}`)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add measurement
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {measurements.map((m) => (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/measurements/${m.id}`)}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{m.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {garmentLabels[m.garmentType] ?? m.garmentType} · {fitLabels[m.fit] ?? m.fit}
+                            {m.usageCount != null && m.usageCount > 0 && (
+                              <span> · Used {m.usageCount} time{m.usageCount === 1 ? '' : 's'}</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {Object.entries(m.measurements).length > 0 && (
+                            <span className="text-xs text-muted-foreground hidden sm:inline">
+                              {Object.entries(m.measurements).length} values
+                            </span>
+                          )}
+                          <span className="text-xs text-primary font-medium">View</span>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => navigate(`/measurements/new?customerId=${order.customerId}`)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add measurement
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

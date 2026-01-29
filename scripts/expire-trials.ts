@@ -1,7 +1,7 @@
 /**
  * Trial expiration is handled locally in the app — no Firebase, no cron.
  *
- * - New users get a 3-day trial (see localTrialService.initLocalTrial).
+ * - New users get a 30-day trial (see localTrialService.initLocalTrial).
  * - Expiration is checked on each page load via checkLocalTrialStatus.
  * - When now > trialEndsAt, the user hits the trial wall (AccountLocked).
  *

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { getDocument, getCollection } from '@/firebase/firestore';
 import { Order, Customer, Payment, Shop } from '@/types';
-import { Download, ArrowLeft, FileText, Calendar, User, Phone, Mail, DollarSign } from 'lucide-react';
+import { Download, ArrowLeft, FileText, Printer } from 'lucide-react';
 
 export default function InvoiceGenerator() {
   const { id } = useParams<{ id: string }>();
@@ -71,118 +70,66 @@ export default function InvoiceGenerator() {
     }
   };
 
+  const RECEIPT_MM = 80;
+
   const generatePDF = () => {
     if (!order || !customer) return;
 
-    // Create a simple HTML invoice
     const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
     const remaining = order.amount - totalPaid;
 
     const invoiceHTML = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Invoice - Order #${order.id.slice(-6)}</title>
+          <meta charset="utf-8">
+          <title>Invoice #${order.id.slice(-6)}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { color: #333; margin: 0; }
-            .header p { color: #666; margin: 5px 0; }
-            .shop-name { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }
-            .shop-contact { font-size: 14px; color: #666; margin-bottom: 15px; }
-            .shop-contact p { margin: 3px 0; }
-            .info { margin-bottom: 20px; }
-            .info h3 { color: #333; margin-bottom: 10px; }
-            .info p { margin: 5px 0; color: #666; }
-            .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-            .table th { background-color: #f5f5f5; }
-            .total { text-align: right; font-weight: bold; }
-            .footer { margin-top: 30px; text-align: center; color: #666; font-size: 12px; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Courier New', monospace; margin: 0; padding: 4mm; font-size: 11px; width: ${RECEIPT_MM}mm; max-width: 100%; }
+            .r { width: ${RECEIPT_MM}mm; max-width: 100%; margin: 0 auto; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .mt1 { margin-top: 2mm; }
+            .mt2 { margin-top: 4mm; }
+            .mb1 { margin-bottom: 2mm; }
+            hr { border: none; border-top: 1px dashed #333; margin: 3mm 0; }
+            .row { display: flex; justify-content: space-between; gap: 4mm; }
+            .pay { font-size: 10px; margin-top: 1mm; }
+            @media print { body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="shop-name">${shop?.name || 'Tailor Shop'}</div>
-            <div class="shop-contact">
-              ${shop?.phone ? `<p><strong>Phone:</strong> ${shop.phone}</p>` : ''}
-              ${shop?.address ? `<p><strong>Location:</strong> ${shop.address}</p>` : ''}
-            </div>
-            <h1>INVOICE</h1>
-            <p>Order #${order.id.slice(-6)}</p>
-            <p>${new Date(order.createdAt).toLocaleDateString()}</p>
-          </div>
-
-          <div class="info">
-            <h3>Customer Information</h3>
-            <p><strong>Name:</strong> ${customer.name}</p>
-            ${customer.phone ? `<p><strong>Phone:</strong> ${customer.phone}</p>` : ''}
-            ${customer.email ? `<p><strong>Email:</strong> ${customer.email}</p>` : ''}
-            ${customer.address ? `<p><strong>Address:</strong> ${customer.address}</p>` : ''}
-          </div>
-
-          <div class="info">
-            <h3>Order Details</h3>
-            <p><strong>Description:</strong> ${order.description}</p>
-            <p><strong>Status:</strong> ${order.status.replace('_', ' ')}</p>
-            ${order.dueDate ? `<p><strong>Due Date:</strong> ${new Date(order.dueDate).toLocaleDateString()}</p>` : ''}
-            ${order.notes ? `<p><strong>Notes:</strong> ${order.notes}</p>` : ''}
-          </div>
-
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${order.description}</td>
-                <td>${order.currency} ${order.amount.toFixed(2)}</td>
-                <td>${order.status.replace('_', ' ')}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          ${payments.length > 0 ? `
-            <h3>Payment History</h3>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Method</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${payments.map(payment => `
-                  <tr>
-                    <td>${new Date(payment.createdAt).toLocaleDateString()}</td>
-                    <td>${payment.method}</td>
-                    <td>${payment.currency} ${payment.amount.toFixed(2)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          ` : ''}
-
-          <div class="total">
-            <p><strong>Total Amount:</strong> ${order.currency} ${order.amount.toFixed(2)}</p>
-            <p><strong>Total Paid:</strong> ${order.currency} ${totalPaid.toFixed(2)}</p>
-            <p><strong>Remaining Balance:</strong> ${order.currency} ${remaining.toFixed(2)}</p>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for your business!</p>
-            <p>This is a computer-generated invoice.</p>
+          <div class="r">
+            <div class="center bold mb1">${(shop?.name || 'Tailor Shop').replace(/</g, '&lt;')}</div>
+            ${shop?.phone ? `<div class="center" style="font-size:10px">${String(shop.phone).replace(/</g, '&lt;')}</div>` : ''}
+            ${shop?.address ? `<div class="center" style="font-size:10px">${String(shop.address).replace(/</g, '&lt;')}</div>` : ''}
+            <hr class="mt1" />
+            <div class="center bold mt1">INVOICE</div>
+            <div class="center" style="font-size:10px">#${order.id.slice(-6)} &bull; ${new Date(order.createdAt).toLocaleDateString()}</div>
+            <hr class="mt1" />
+            <div class="bold mt2">Customer</div>
+            <div>${String(customer.name).replace(/</g, '&lt;')}</div>
+            ${customer.phone ? `<div style="font-size:10px">${String(customer.phone).replace(/</g, '&lt;')}</div>` : ''}
+            ${customer.address ? `<div style="font-size:10px">${String(customer.address).replace(/</g, '&lt;')}</div>` : ''}
+            <hr class="mt1" />
+            <div class="bold">Order</div>
+            <div>${String(order.description).replace(/</g, '&lt;')}</div>
+            <div class="row mt1"><span>Status</span><span>${order.status.replace('_', ' ')}</span></div>
+            ${order.dueDate ? `<div class="row"><span>Due</span><span>${new Date(order.dueDate).toLocaleDateString()}</span></div>` : ''}
+            <hr class="mt1" />
+            ${payments.length > 0 ? payments.map(p => `<div class="row pay"><span>${new Date(p.createdAt).toLocaleDateString()} ${(p.method || '').replace('_',' ')}</span><span>${p.currency} ${p.amount.toFixed(2)}</span></div>`).join('') + '<hr class="mt1" />' : ''}
+            <div class="row bold"><span>Total</span><span>${order.currency} ${order.amount.toFixed(2)}</span></div>
+            <div class="row"><span>Paid</span><span>${order.currency} ${totalPaid.toFixed(2)}</span></div>
+            <div class="row bold"><span>Balance</span><span>${order.currency} ${remaining.toFixed(2)}</span></div>
+            <hr class="mt2" />
+            <div class="center mt1" style="font-size:10px">Thank you</div>
           </div>
         </body>
       </html>
     `;
 
-    // Create a blob and download
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
+    const blob = new Blob([invoiceHTML], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -194,8 +141,12 @@ export default function InvoiceGenerator() {
 
     toast({
       title: 'Invoice downloaded',
-      description: 'Invoice has been downloaded successfully.',
+      description: '80mm receipt-style invoice saved. Open and print for terminal printer.',
     });
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   if (loading) {
@@ -227,149 +178,98 @@ export default function InvoiceGenerator() {
   const remaining = order.amount - totalPaid;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`/orders/${order.id}`)}
-            className="flex items-center space-x-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Order</span>
+    <div className="min-h-screen bg-gray-100 p-4 md:p-8">
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: #fff; }
+          .invoice-receipt {
+            width: 80mm !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 4mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: #fff !important;
+          }
+        }
+      `}</style>
+      <div className="no-print flex flex-wrap items-center justify-between gap-4 mb-6">
+        <Button variant="ghost" onClick={() => navigate(`/orders/${order.id}`)} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Order
+        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handlePrint} variant="outline" className="gap-2">
+            <Printer className="h-4 w-4" />
+            Print (80mm)
           </Button>
-          <Button onClick={generatePDF} className="flex items-center space-x-2">
+          <Button onClick={generatePDF} className="gap-2">
             <Download className="h-4 w-4" />
-            <span>Download Invoice</span>
+            Download
           </Button>
         </div>
-
-        <Card>
-          <CardHeader>
-            <div className="text-center space-y-2">
-              <div className="text-xl font-bold text-blue-600">
-                {shop?.name || 'Tailor Shop'}
-              </div>
-              <div className="text-sm text-gray-600">
-                {shop?.phone && <span>📞 {shop.phone}</span>}
-                {shop?.phone && shop?.address && <span> • </span>}
-                {shop?.address && <span>📍 {shop.address}</span>}
-              </div>
-              <CardTitle className="text-center">INVOICE</CardTitle>
-              <p className="text-center text-muted-foreground">
-                Order #{order.id.slice(-6)} • {new Date(order.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Customer Information */}
-            <div>
-              <h3 className="font-semibold mb-3">Customer Information</h3>
-              <div className="space-y-1">
-                <p className="flex items-center space-x-2">
-                  <User className="h-4 w-4 text-gray-500" />
-                  <span>{customer.name}</span>
-                </p>
-                {customer.phone && (
-                  <p className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <span>{customer.phone}</span>
-                  </p>
-                )}
-                {customer.email && (
-                  <p className="flex items-center space-x-2">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    <span>{customer.email}</span>
-                  </p>
-                )}
-                {customer.address && (
-                  <p className="flex items-center space-x-2">
-                    <span className="h-4 w-4 text-gray-500">📍</span>
-                    <span>{customer.address}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Order Details */}
-            <div>
-              <h3 className="font-semibold mb-3">Order Details</h3>
-              <div className="space-y-1">
-                <p><strong>Description:</strong> {order.description}</p>
-                <p><strong>Status:</strong> {order.status.replace('_', ' ')}</p>
-                {order.dueDate && (
-                  <p className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span><strong>Due Date:</strong> {new Date(order.dueDate).toLocaleDateString()}</span>
-                  </p>
-                )}
-                {order.notes && <p><strong>Notes:</strong> {order.notes}</p>}
-              </div>
-            </div>
-
-            {/* Order Summary */}
-            <div>
-              <h3 className="font-semibold mb-3">Order Summary</h3>
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Description</th>
-                    <th className="text-right py-2">Amount</th>
-                    <th className="text-center py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b">
-                    <td className="py-2">{order.description}</td>
-                    <td className="text-right py-2">{order.currency} {order.amount.toFixed(2)}</td>
-                    <td className="text-center py-2">{order.status.replace('_', ' ')}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Payment History */}
-            {payments.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-3">Payment History</h3>
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Date</th>
-                      <th className="text-left py-2">Method</th>
-                      <th className="text-right py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.map((payment) => (
-                      <tr key={payment.id} className="border-b">
-                        <td className="py-2">{new Date(payment.createdAt).toLocaleDateString()}</td>
-                        <td className="py-2">{payment.method}</td>
-                        <td className="text-right py-2">{payment.currency} {payment.amount.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Total */}
-            <div className="border-t pt-4">
-              <div className="space-y-2 text-right">
-                <p className="text-lg"><strong>Total Amount:</strong> {order.currency} {order.amount.toFixed(2)}</p>
-                <p className="text-lg"><strong>Total Paid:</strong> {order.currency} {totalPaid.toFixed(2)}</p>
-                <p className="text-xl font-bold text-blue-600"><strong>Remaining Balance:</strong> {order.currency} {remaining.toFixed(2)}</p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center pt-6 border-t">
-              <p className="text-gray-600">Thank you for your business!</p>
-              <p className="text-sm text-gray-500">This is a computer-generated invoice.</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+      <div
+        id="receipt"
+        className="invoice-receipt w-[80mm] max-w-full mx-auto bg-white border border-gray-200 rounded shadow-sm p-3 font-mono text-xs print:shadow-none print:border-0"
+        style={{ minHeight: '1px' }}
+      >
+        <div className="text-center font-bold text-sm mb-1">{shop?.name || 'Tailor Shop'}</div>
+        {(shop?.phone || shop?.address) && (
+          <div className="text-center text-[10px] text-gray-600 mb-1">
+            {[shop?.phone, shop?.address].filter(Boolean).join(' · ')}
+          </div>
+        )}
+        <div className="border-t border-dashed border-gray-400 my-2" />
+        <div className="text-center font-bold">INVOICE</div>
+        <div className="text-center text-[10px] text-gray-600">#{order.id.slice(-6)} · {new Date(order.createdAt).toLocaleDateString()}</div>
+        <div className="border-t border-dashed border-gray-400 my-2" />
+        <div className="font-bold mb-0.5">Customer</div>
+        <div>{customer.name}</div>
+        {customer.phone && <div className="text-[10px]">{customer.phone}</div>}
+        {customer.address && <div className="text-[10px]">{customer.address}</div>}
+        <div className="border-t border-dashed border-gray-400 my-2" />
+        <div className="font-bold mb-0.5">Order</div>
+        <div className="break-words">{order.description}</div>
+        <div className="flex justify-between mt-1">
+          <span>Status</span>
+          <span>{order.status.replace('_', ' ')}</span>
+        </div>
+        {order.dueDate && (
+          <div className="flex justify-between">
+            <span>Due</span>
+            <span>{new Date(order.dueDate).toLocaleDateString()}</span>
+          </div>
+        )}
+        <div className="border-t border-dashed border-gray-400 my-2" />
+        {payments.length > 0 && (
+          <>
+            {payments.map((p) => (
+              <div key={p.id} className="flex justify-between text-[10px]">
+                <span>{new Date(p.createdAt).toLocaleDateString()} {(p.method || '').replace('_', ' ')}</span>
+                <span>{p.currency} {p.amount.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="border-t border-dashed border-gray-400 my-2" />
+          </>
+        )}
+        <div className="flex justify-between font-bold">
+          <span>Total</span>
+          <span>{order.currency} {order.amount.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Paid</span>
+          <span>{order.currency} {totalPaid.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between font-bold">
+          <span>Balance</span>
+          <span>{order.currency} {remaining.toFixed(2)}</span>
+        </div>
+        <div className="border-t border-dashed border-gray-400 mt-2 mb-1" />
+        <div className="text-center text-[10px]">Thank you</div>
+      </div>
+      <p className="no-print text-center text-xs text-muted-foreground mt-4">80mm · Fit for terminal/receipt printer</p>
     </div>
   );
 }

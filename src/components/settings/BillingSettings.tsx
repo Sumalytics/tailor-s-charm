@@ -30,6 +30,13 @@ import { getCollection } from '@/firebase/firestore';
 import { getTrialStatus } from '@/services/billingService';
 import TrialCountdown from '@/components/billing/TrialCountdown';
 
+function getPlanFeaturesArray(plan: { features?: unknown }): string[] {
+  const f = plan?.features;
+  if (Array.isArray(f)) return f;
+  if (f && typeof f === 'object') return Object.values(f).filter((v): v is string => typeof v === 'string');
+  return [];
+}
+
 export default function BillingSettings() {
   const { currentUser, shopId } = useAuth();
   const { subscription: contextSubscription, isActive, isLocked, status, daysUntilExpiry, refreshSubscription } = useSubscription();
@@ -322,7 +329,7 @@ export default function BillingSettings() {
               <div>
                 <p className="text-sm font-medium mb-2">Included Features</p>
                 <div className="grid gap-1 md:grid-cols-2">
-                  {selectedPlan.features.slice(0, 4).map((feature, index) => (
+                  {getPlanFeaturesArray(selectedPlan).slice(0, 4).map((feature, index) => (
                     <div key={index} className="flex items-center space-x-2 text-sm">
                       <CheckCircle className="h-3 w-3 text-green-600" />
                       <span>{feature}</span>
@@ -420,7 +427,7 @@ export default function BillingSettings() {
                     </div>
 
                     <div className="space-y-2 mb-6">
-                      {plan.features.map((feature, index) => (
+                      {getPlanFeaturesArray(plan).map((feature, index) => (
                         <div key={index} className="flex items-center space-x-2">
                           <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                           <span className="text-sm">{feature}</span>

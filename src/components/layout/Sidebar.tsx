@@ -14,6 +14,7 @@ import {
   Store,
   BarChart3,
   PieChart,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,8 @@ const regularNavItems: NavItem[] = [
   { label: 'Orders', href: '/orders', icon: ShoppingBag },
   { label: 'Measurements', href: '/measurements', icon: Ruler },
   { label: 'Payments', href: '/payments', icon: CreditCard },
+  { label: 'Debtors', href: '/debts', icon: Receipt },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -98,19 +101,11 @@ export function Sidebar({ onLogout }: SidebarProps) {
       {/* User section */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3 min-w-0">
-          {currentUser?.photoURL ? (
-            <img 
-              src={currentUser.photoURL} 
-              alt="Profile" 
-              className="h-9 w-9 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-medium text-sidebar-foreground">
-                {currentUser?.displayName?.split(' ').map((n) => n[0]).join('') || 'U'}
-              </span>
-            </div>
-          )}
+          <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-medium text-sidebar-foreground">
+              {currentUser?.displayName?.split(' ').map((n) => n[0]).join('') || 'U'}
+            </span>
+          </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {currentUser?.displayName || 'User'}

@@ -17,7 +17,7 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
       case 'TRIAL_EXPIRED':
         return {
           title: 'Trial Period Expired',
-          description: 'Your 3-day free trial has ended. Upgrade to continue using TailorFlow.',
+          description: 'Your 30-day free trial has ended. Upgrade to continue using TailorFlow.',
           icon: <AlertTriangle className="h-12 w-12 text-orange-500" />,
           badge: 'Trial Expired',
           badgeVariant: 'secondary' as const
@@ -42,7 +42,7 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
       case 'NO_SHOP':
         return {
           title: 'Set Up Your Shop',
-          description: 'Create your shop to start your 3-day free trial and get full access.',
+          description: 'Create your shop to start your 30-day free trial and get full access.',
           icon: <CreditCard className="h-12 w-12 text-primary" />,
           badge: 'Setup required',
           badgeVariant: 'secondary' as const
@@ -64,7 +64,7 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
     if (onUpgrade) {
       onUpgrade();
     } else if (status === 'NO_SHOP') {
-      // No shop yet: send to shop setup to create shop and start 3-day trial
+      // No shop yet: send to shop setup to create shop and start 30-day trial
       window.location.href = '/shop-setup';
     } else {
       window.location.href = '/settings?tab=billing';

@@ -14,6 +14,8 @@ export default function TrialCountdown({ subscription, onUpgrade }: TrialCountdo
   const trialInfo = getTrialStatus(subscription);
 
   if (!trialInfo.isTrial) return null;
+  // Notify only when ≤7 days left or expired
+  if (!trialInfo.isExpired && !trialInfo.withinNotifyWindow) return null;
 
   const trialEndDate = subscription?.trialEndsAt
     ? new Date(subscription.trialEndsAt)
@@ -23,7 +25,7 @@ export default function TrialCountdown({ subscription, onUpgrade }: TrialCountdo
 
   const countdownLabel = trialInfo.isExpired
     ? 'Trial expired — upgrade to regain full access'
-    : `${trialInfo.daysLeft} day${trialInfo.daysLeft === 1 ? '' : 's'} ${trialInfo.hoursLeft} hour${trialInfo.hoursLeft === 1 ? '' : 's'} left`;
+    : `${trialInfo.daysLeft} day${trialInfo.daysLeft === 1 ? '' : 's'} left — trial ends soon`;
 
   return (
     <div className="border border-orange-200 bg-orange-50 rounded-lg p-4 space-y-3">
@@ -33,14 +35,14 @@ export default function TrialCountdown({ subscription, onUpgrade }: TrialCountdo
           {countdownLabel}
         </div>
         <Badge variant={trialInfo.isExpired ? 'destructive' : 'secondary'}>
-          {!trialInfo.isExpired ? 'Trial running' : 'Expired'}
+          {!trialInfo.isExpired ? 'Trial ending soon' : 'Expired'}
         </Badge>
       </div>
 
       {trialEndDate && (
         <div className="flex items-center gap-2 text-xs text-orange-600">
           <Calendar className="h-4 w-4" />
-          <span>Trial locks on {trialEndDate.toLocaleString()}</span>
+          <span>Trial ends {trialEndDate.toLocaleDateString()}</span>
         </div>
       )}
 

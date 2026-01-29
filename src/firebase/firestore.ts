@@ -16,8 +16,7 @@ import {
   increment,
   Query,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from './config';
+import { db } from './config';
 import type {
   User,
   Customer,
@@ -278,18 +277,6 @@ export const incrementMeasurementUsage = async (measurementId: string) => {
   await updateDoc(measurementRef, {
     usageCount: increment(1)
   });
-};
-
-// File upload operations
-export const uploadFile = async (file: File, path: string): Promise<string> => {
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
-};
-
-export const deleteFile = async (path: string): Promise<void> => {
-  const storageRef = ref(storage, path);
-  await deleteObject(storageRef);
 };
 
 // Debt tracking functions

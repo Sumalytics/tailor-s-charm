@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDocument, getCollection, deleteDocument } from '@/firebase/firestore';
-import { Customer, Order, Measurement } from '@/types';
-import { ArrowLeft, Edit, Trash2, ShoppingBag, Phone, Mail, MapPin, Calendar, Ruler } from 'lucide-react';
+import { getDocument, getCollection, deleteDocument, getCustomerDebts } from '@/firebase/firestore';
+import { Customer, Order, Measurement, Debt } from '@/types';
+import { formatCurrency } from '@/lib/currency';
+import { ArrowLeft, Edit, Trash2, ShoppingBag, Phone, Mail, MapPin, Calendar, Ruler, DollarSign, CreditCard } from 'lucide-react';
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,8 +20,10 @@ export default function CustomerDetail() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingMeasurements, setLoadingMeasurements] = useState(false);
+  const [loadingDebts, setLoadingDebts] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -32,6 +35,7 @@ export default function CustomerDetail() {
     if (customer) {
       loadCustomerOrders();
       loadCustomerMeasurements();
+      loadCustomerDebts();
     }
   }, [customer]);
 
@@ -84,18 +88,32 @@ export default function CustomerDetail() {
 
     setLoadingMeasurements(true);
     try {
-      console.log('Loading measurements for customer:', customer.id, 'shopId:', shopId);
       const measurementsData = await getCollection<Measurement>('measurements', [
         { field: 'shopId', operator: '==', value: shopId },
         { field: 'customerId', operator: '==', value: customer.id }
       ]);
-      
-      console.log('Customer measurements data:', measurementsData);
       setMeasurements(measurementsData);
     } catch (error) {
       console.error('Error loading measurements:', error);
     } finally {
       setLoadingMeasurements(false);
+    }
+  };
+
+  const loadCustomerDebts = async () => {
+    if (!customer || !shopId) return;
+
+    setLoadingDebts(true);
+    try {
+      const list = await getCustomerDebts(shopId, customer.id);
+      const outstanding = list.filter(
+        (d) => d.status === 'ACTIVE' || d.status === 'PARTIALLY_PAID'
+      );
+      setDebts(outstanding);
+    } catch (error) {
+      console.error('Error loading customer debts:', error);
+    } finally {
+      setLoadingDebts(false);
     }
   };
 
@@ -234,6 +252,49 @@ export default function CustomerDetail() {
                   <div className="pt-4 border-t">
                     <h4 className="font-medium mb-2">Notes</h4>
                     <p className="text-sm text-gray-600">{customer.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Outstanding debt */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Outstanding debt
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingDebts ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  </div>
+                ) : debts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No outstanding debt</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-lg font-semibold text-red-600">
+                      Total: {formatCurrency(debts.reduce((s, d) => s + d.remainingAmount, 0), debts[0]?.currency ?? 'GHS')}
+                    </p>
+                    {debts.map((d) => (
+                      <div
+                        key={d.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-muted/30"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{d.orderDescription}</p>
+                          <p className="text-xs text-muted-foreground">#{d.orderId.slice(-6)} · {formatCurrency(d.remainingAmount, d.currency)}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/payments/new?orderId=${d.orderId}`); }}
+                        >
+                          <CreditCard className="h-3 w-3 mr-1" />
+                          Pay
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

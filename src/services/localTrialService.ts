@@ -1,14 +1,16 @@
 /**
- * Local-only trial: 3-day trial stored in localStorage.
+ * Local-only trial: 30-day trial stored in localStorage.
  * No Firebase, no server cron — expiration is checked on each app load/refresh.
  *
  * If localStorage is cleared: no record → user is locked (NO_SUBSCRIPTION) until they
  * upgrade again. Trial is only started when they create a new shop (ShopSettings).
+ * Notify users 7 days before expiry.
  */
 
 import type { Subscription, BillingPlan } from '@/types';
 
-const TRIAL_DAYS = 3;
+const TRIAL_DAYS = 30;
+export const TRIAL_NOTIFY_DAYS = 7;
 const STORAGE_PREFIX = 'tailor_trial_';
 
 function storageKey(shopId: string): string {
@@ -32,14 +34,14 @@ const DEFAULT_TRIAL_PLAN: BillingPlan = {
   price: 0,
   currency: 'GHS',
   billingCycle: 'MONTHLY',
-  features: ['3-day full access'],
+  features: ['30-day full access'],
   limits: { customers: 100, orders: 500, teamMembers: 3, storage: 100 },
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-/** Start a 3-day trial for a shop (call when new shop is created). */
+/** Start a 30-day trial for a shop (call when new shop is created). */
 export function initLocalTrial(shopId: string): void {
   const trialEndsAt = Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000;
   const record: LocalTrialRecord = {
@@ -108,6 +110,8 @@ export function checkLocalTrialStatus(shopId: string): {
   isLocked: boolean;
   status: string;
   daysUntilExpiry?: number;
+  /** True when on trial and ≤7 days left (show expiry notification). */
+  notifyExpiry?: boolean;
 } {
   const record = getLocalTrial(shopId);
   if (!record) {
@@ -118,6 +122,7 @@ export function checkLocalTrialStatus(shopId: string): {
   const endMs = record.currentPeriodEnd ?? record.trialEndsAt;
   const now = Date.now();
   const daysUntilExpiry = Math.ceil((endMs - now) / (1000 * 60 * 60 * 24));
+  const days = Math.max(0, daysUntilExpiry);
 
   if (status === 'TRIAL_EXPIRED' || status === 'NO_SUBSCRIPTION') {
     return {
@@ -134,7 +139,7 @@ export function checkLocalTrialStatus(shopId: string): {
       isActive: true,
       isLocked: false,
       status: 'ACTIVE',
-      daysUntilExpiry: Math.max(0, daysUntilExpiry),
+      daysUntilExpiry: days,
     };
   }
   // TRIAL
@@ -145,7 +150,8 @@ export function checkLocalTrialStatus(shopId: string): {
     isActive: true,
     isLocked: false,
     status: 'TRIAL',
-    daysUntilExpiry: Math.max(0, daysUntilExpiry),
+    daysUntilExpiry: days,
+    notifyExpiry: days <= TRIAL_NOTIFY_DAYS,
   };
 }
 

@@ -3,13 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateProfile, updateEmail, updatePassword } from 'firebase/auth';
 import { getDocument, updateDocument } from '@/firebase/firestore';
-import { User, Camera, Save, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { User, Save, Mail, Lock, User as UserIcon } from 'lucide-react';
 
 export default function ProfileSettings() {
   const { currentUser } = useAuth();
@@ -211,7 +211,6 @@ export default function ProfileSettings() {
           {/* Avatar Section */}
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={currentUser?.photoURL || ''} />
               <AvatarFallback className="text-lg">
                 {getInitials(formData.displayName)}
               </AvatarFallback>
@@ -219,10 +218,6 @@ export default function ProfileSettings() {
             <div>
               <h3 className="text-lg font-medium">{formData.displayName}</h3>
               <p className="text-sm text-muted-foreground">{formData.email}</p>
-              <Button variant="outline" size="sm" className="mt-2">
-                <Camera className="h-4 w-4 mr-2" />
-                Change Photo
-              </Button>
             </div>
           </div>
 

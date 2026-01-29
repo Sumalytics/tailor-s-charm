@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -30,12 +30,11 @@ import {
   Trash2,
   Crown,
   Settings as SettingsIcon,
-  Camera,
-  Upload,
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { 
   getTeamMembers, 
@@ -47,16 +46,24 @@ import {
   updateBillingPlan,
   deleteBillingPlan,
   updateDocument,
-  addDocument
+  addDocument,
 } from '@/firebase/firestore';
 import { User as UserType, BillingPlan, Subscription, UserRole } from '@/types';
 import { getCollection } from '@/firebase/firestore';
+import { activateLocalSubscription } from '@/services/localTrialService';
+
+function getPlanFeaturesArray(plan: { features?: unknown }): string[] {
+  const f = plan?.features;
+  if (Array.isArray(f)) return f;
+  if (f && typeof f === 'object') return Object.values(f).filter((v): v is string => typeof v === 'string');
+  return [];
+}
 
 export default function Settings() {
   const { currentUser, userRole, shopId } = useAuth();
+  const { subscription: contextSubscription, accountStatusDisplay, daysUntilExpiry, refreshSubscription } = useSubscription();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [teamMembers, setTeamMembers] = useState<UserType[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingPlans, setBillingPlans] = useState<BillingPlan[]>([]);
@@ -121,8 +128,11 @@ export default function Settings() {
   const handlePaymentSuccess = async (reference: string) => {
     if (!shopId || !selectedPlan) return;
 
+    const periodEndMs =
+      Date.now() +
+      (selectedPlan.billingCycle === 'MONTHLY' ? 30 : 365) * 24 * 60 * 60 * 1000;
+
     try {
-      // Create new subscription
       const subscriptionData = {
         shopId,
         planId: selectedPlan.id,
@@ -130,14 +140,14 @@ export default function Settings() {
         status: 'ACTIVE',
         billingCycle: selectedPlan.billingCycle,
         currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(
-          Date.now() + (selectedPlan.billingCycle === 'MONTHLY' ? 30 : 365) * 24 * 60 * 60 * 1000
-        ),
+        currentPeriodEnd: new Date(periodEndMs),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
       await addDocument('subscriptions', subscriptionData);
+      activateLocalSubscription(shopId, periodEndMs, selectedPlan.id);
+      await refreshSubscription();
 
       toast({
         title: 'Payment Successful!',
@@ -145,7 +155,7 @@ export default function Settings() {
       });
 
       setSelectedPlan(null);
-      loadSettingsData(); // Refresh subscription data
+      loadSettingsData();
     } catch (error) {
       console.error('Error creating subscription:', error);
       toast({
@@ -164,7 +174,6 @@ export default function Settings() {
     displayName: '',
   });
   const [updatingProfile, setUpdatingProfile] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
   // Team invitation state
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -337,52 +346,6 @@ export default function Settings() {
     }
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !currentUser) return;
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please select an image under 5MB.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid file type',
-        description: 'Please select an image file.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setUploadingPhoto(true);
-    try {
-      // TODO: Implement actual photo upload to Firebase Storage
-      // For now, just show a success message
-      toast({
-        title: 'Photo upload coming soon',
-        description: 'Photo upload functionality will be implemented in a future update.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error uploading photo',
-        description: 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploadingPhoto(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
   const handleProfileChange = (field: string, value: string) => {
     setProfileData(prev => ({
       ...prev,
@@ -518,57 +481,10 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center relative">
-                    {currentUser?.photoURL ? (
-                      <img 
-                        src={currentUser.photoURL} 
-                        alt="Profile" 
-                        className="h-20 w-20 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-2xl font-bold text-primary">
-                        {profileData.firstName?.[0] || profileData.displayName?.[0] || 'U'}
-                      </span>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="absolute bottom-0 right-0 h-8 w-8 rounded-full p-0"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                    >
-                      {uploadingPhoto ? (
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                      ) : (
-                        <Camera className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                  <div>
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                    >
-                      {uploadingPhoto ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Change Photo
-                        </>
-                      )}
-                    </Button>
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-primary">
+                      {profileData.firstName?.[0] || profileData.displayName?.[0] || 'U'}
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -600,6 +516,34 @@ export default function Settings() {
                     onChange={(e) => handleProfileChange('email', e.target.value)}
                     placeholder="Enter your email"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account status</Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        accountStatusDisplay === 'Active'
+                          ? 'default'
+                          : accountStatusDisplay === 'Trial'
+                            ? 'secondary'
+                            : accountStatusDisplay === 'Trial expired' || accountStatusDisplay === 'No subscription'
+                              ? 'destructive'
+                              : 'outline'
+                      }
+                    >
+                      {accountStatusDisplay}
+                    </Badge>
+                    {accountStatusDisplay === 'Trial' && contextSubscription && (() => {
+                      const start = contextSubscription.currentPeriodStart;
+                      const end = contextSubscription.trialEndsAt || contextSubscription.currentPeriodEnd;
+                      if (!start || !end) return null;
+                      return (
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(start).toLocaleDateString()} – {new Date(end).toLocaleDateString()}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <Button 
                   onClick={handleUpdateProfile}
@@ -795,48 +739,72 @@ export default function Settings() {
                 <CardDescription>Your subscription details</CardDescription>
               </CardHeader>
               <CardContent>
-                {subscription ? (
-                  <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold">{subscription.plan.name}</h3>
-                        <p className="text-muted-foreground">
-                          ${subscription.plan.price}/{subscription.plan.billingCycle.toLowerCase()} • Billed {subscription.plan.billingCycle.toLowerCase()}
-                        </p>
-                      </div>
-                      <Badge className={subscription.status === 'ACTIVE' ? 'bg-primary' : 'bg-warning'}>
-                        {subscription.status}
-                      </Badge>
-                    </div>
-                    <ul className="mt-4 space-y-2 text-sm">
-                      {subscription.plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center gap-2">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="flex gap-4 mt-4">
-                      <Button variant="outline">Change Plan</Button>
-                      {subscription.status === 'ACTIVE' && (
-                        <Button variant="outline" className="text-destructive">
-                          Cancel Subscription
+                {(() => {
+                  const isTrial = accountStatusDisplay === 'Trial' && contextSubscription;
+                  const effectiveSub = subscription ?? (isTrial ? contextSubscription : null);
+                  if (!effectiveSub) {
+                    return (
+                      <div className="text-center py-8">
+                        <CreditCard className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm text-gray-500">No active subscription</p>
+                        <Button className="mt-2" onClick={openPlanSelection}>
+                          Choose a Plan
                         </Button>
-                      )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-bold">{effectiveSub.plan.name}</h3>
+                          {isTrial ? (
+                            <div className="text-muted-foreground mt-1 space-y-0.5">
+                              <p>
+                                {getPlanFeaturesArray(effectiveSub.plan)[0] ?? '30-day full access'}
+                                {typeof daysUntilExpiry === 'number' && (
+                                  <span className="font-medium text-foreground ml-1">
+                                    · {daysUntilExpiry} day{daysUntilExpiry === 1 ? '' : 's'} remaining
+                                  </span>
+                                )}
+                              </p>
+                              {(effectiveSub.trialEndsAt || effectiveSub.currentPeriodEnd) && (
+                                <p className="text-xs">
+                                  Trial ends {new Date(effectiveSub.trialEndsAt || effectiveSub.currentPeriodEnd!).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground">
+                              ${effectiveSub.plan.price}/{effectiveSub.plan.billingCycle.toLowerCase()} · Billed {effectiveSub.plan.billingCycle.toLowerCase()}
+                            </p>
+                          )}
+                        </div>
+                        <Badge className={effectiveSub.status === 'ACTIVE' ? 'bg-primary' : 'bg-secondary'}>
+                          {effectiveSub.status}
+                        </Badge>
+                      </div>
+                      <ul className="mt-4 space-y-2 text-sm">
+                        {getPlanFeaturesArray(effectiveSub.plan).map((feature, index) => (
+                          <li key={index} className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex gap-4 mt-4">
+                        <Button variant="outline" onClick={openPlanSelection}>
+                          {isTrial ? 'Upgrade plan' : 'Change Plan'}
+                        </Button>
+                        {effectiveSub.status === 'ACTIVE' && !isTrial && (
+                          <Button variant="outline" className="text-destructive">
+                            Cancel Subscription
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CreditCard className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-500">No active subscription</p>
-                    <Button 
-                      className="mt-2"
-                      onClick={openPlanSelection}
-                    >
-                      Choose a Plan
-                    </Button>
-                  </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -893,7 +861,7 @@ export default function Settings() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Features:</p>
                       <ul className="space-y-1">
-                        {plan.features.slice(0, 4).map((feature, index) => (
+                        {getPlanFeaturesArray(plan).slice(0, 4).map((feature, index) => (
                           <li key={index} className="flex items-center gap-2 text-sm">
                             <CheckCircle className="h-4 w-4 text-green-600" />
                             {feature}

@@ -6,7 +6,7 @@ import {
   getLocalTrialSubscription,
 } from '@/services/localTrialService';
 
-/** Start 3-day local trial for a new shop (no Firebase). */
+/** Start 30-day local trial for a new shop (no Firebase). */
 export async function createTrialSubscription(shopId: string): Promise<string> {
   initLocalTrial(shopId);
   return 'local';
@@ -69,15 +69,17 @@ export async function upgradeSubscription(
   return 'local';
 }
 
-// Get trial status information
+// Get trial status information (used for countdown banner; notify ≤7 days before expiry)
 export function getTrialStatus(subscription: Subscription | null): {
   isTrial: boolean;
   daysLeft: number;
   hoursLeft: number;
   isExpired: boolean;
+  /** True when ≤7 days left (show expiry notification). */
+  withinNotifyWindow: boolean;
 } {
   if (!subscription || subscription.status !== 'TRIAL') {
-    return { isTrial: false, daysLeft: 0, hoursLeft: 0, isExpired: false };
+    return { isTrial: false, daysLeft: 0, hoursLeft: 0, isExpired: false, withinNotifyWindow: false };
   }
 
   const now = new Date();
@@ -87,6 +89,7 @@ export function getTrialStatus(subscription: Subscription | null): {
   const daysLeft = Math.max(0, Math.floor(timeLeft / (1000 * 60 * 60 * 24)));
   const hoursLeft = Math.max(0, Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
   const isExpired = timeLeft <= 0;
+  const withinNotifyWindow = !isExpired && daysLeft <= 7;
 
-  return { isTrial: true, daysLeft, hoursLeft, isExpired };
+  return { isTrial: true, daysLeft, hoursLeft, isExpired, withinNotifyWindow };
 }

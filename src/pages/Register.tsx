@@ -74,7 +74,7 @@ export default function Register() {
           description: 'Your account has been created successfully.',
         });
 
-        // If user is ADMIN and provided shop name, create shop, link to user, and start 3-day trial
+        // If user is ADMIN and provided shop name, create shop, link to user, and start 30-day trial
         if (formData.role === 'ADMIN' && formData.shopName.trim()) {
           try {
             const shopData = {
@@ -92,7 +92,7 @@ export default function Register() {
 
             toast({
               title: 'Shop created!',
-              description: `${formData.shopName} is set up. You have a 3-day free trial. Log in to get started.`,
+              description: `${formData.shopName} is set up. You have a 30-day free trial. Log in to get started.`,
             });
           } catch (shopError) {
             console.error('Error creating shop:', shopError);
