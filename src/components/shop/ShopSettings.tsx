@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDocument, updateDocument, addDocument } from '@/firebase/firestore';
 import { Shop, Currency } from '@/types';
-import { createTrialSubscription } from '@/services/billingService';
+import { initLocalTrial } from '@/services/localTrialService';
 import { Save, Building2, Phone, Mail, MapPin } from 'lucide-react';
 
 export function ShopSettings() {
@@ -85,14 +85,8 @@ export function ShopSettings() {
         await updateDocument('users', currentUser.uid, { shopId: savedShopId });
         await refreshUser();
         
-        // Create trial subscription for new shop
-        try {
-          await createTrialSubscription(savedShopId);
-          console.log('Trial subscription created for shop:', savedShopId);
-        } catch (trialError) {
-          console.error('Error creating trial subscription:', trialError);
-          // Don't fail the shop creation if trial creation fails
-        }
+        // Start 3-day local trial for new shop (no Firebase)
+        initLocalTrial(savedShopId);
         
         toast({
           title: 'Shop created successfully!',

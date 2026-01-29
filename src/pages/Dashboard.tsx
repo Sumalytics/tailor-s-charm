@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentOrders } from '@/components/dashboard/RecentOrders';
@@ -10,6 +11,7 @@ import { DashboardStats, Order } from '@/types';
 import { formatCurrency } from '@/lib/currency';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { currentUser, shopId } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -60,12 +62,14 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-8">
-        {/* Header */}
-        <div className="animate-slide-up">
-          <h1 className="text-2xl lg:text-3xl font-bold">
+        {/* Header — allow wrapping on small screens to avoid truncation */}
+        <div className="animate-slide-up min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">
             Welcome back, {currentUser?.displayName || 'User'}! 👋
           </h1>
-          <p className="text-muted-foreground mt-1">Here's what's happening with your shop today.</p>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base break-words">
+            Here&apos;s what&apos;s happening with your shop today.
+          </p>
         </div>
 
         {/* Stats Grid */}
@@ -101,7 +105,12 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Recent Orders */}
           <div>
-            <RecentOrders orders={recentOrders} onRefresh={loadDashboardData} />
+            <RecentOrders
+              orders={recentOrders}
+              onOrderClick={(id) => navigate(`/orders/${id}`)}
+              onViewAll={() => navigate('/orders')}
+              onCreateOrder={() => navigate('/orders/new')}
+            />
           </div>
 
           {/* Quick Actions */}

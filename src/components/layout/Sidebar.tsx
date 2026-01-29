@@ -135,12 +135,13 @@ export function Sidebar({ onLogout }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile toggle button */}
+      {/* Mobile toggle button — min 44px touch target for accessibility */}
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden"
+        className="fixed top-4 left-4 z-50 md:hidden min-h-[44px] min-w-[44px] h-11 w-11 touch-manipulation"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
+        aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
       >
         {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>

@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { logout } from '@/firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import TrialCountdown from '@/components/billing/TrialCountdown';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -13,6 +15,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { refreshUser } = useAuth();
+  const { subscription } = useSubscription();
   // Temporarily disable banner context to isolate the issue
   // const { bannerHeight } = useBanner();
 
@@ -38,7 +41,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-background flex">
       <Sidebar onLogout={handleLogout} />
       <main className="flex-1 lg:ml-0 md:ml-0">
-        <div className="min-h-screen">
+        {/* pl-14 on mobile so all content clears the fixed menu button (left-4 + ~40px icon) */}
+        <div className="min-h-screen space-y-6 pl-14 md:pl-0">
+          <div className="px-4 md:px-8 pt-6">
+            <TrialCountdown
+              subscription={subscription}
+              onUpgrade={() => window.location.assign('/settings?tab=billing')}
+            />
+          </div>
           {children}
         </div>
       </main>

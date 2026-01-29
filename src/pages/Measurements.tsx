@@ -103,11 +103,11 @@ export default function Measurements() {
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Header — button under heading */}
+        <div className="space-y-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold">Measurements</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl lg:text-3xl font-bold break-words">Measurements</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base break-words">
               Manage customer measurement records and templates
             </p>
           </div>

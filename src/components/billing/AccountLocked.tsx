@@ -39,6 +39,14 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
           badge: 'Cancelled',
           badgeVariant: 'secondary' as const
         };
+      case 'NO_SHOP':
+        return {
+          title: 'Set Up Your Shop',
+          description: 'Create your shop to start your 3-day free trial and get full access.',
+          icon: <CreditCard className="h-12 w-12 text-primary" />,
+          badge: 'Setup required',
+          badgeVariant: 'secondary' as const
+        };
       default:
         return {
           title: 'Account Locked',
@@ -55,8 +63,10 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
   const handleUpgrade = () => {
     if (onUpgrade) {
       onUpgrade();
+    } else if (status === 'NO_SHOP') {
+      // No shop yet: send to shop setup to create shop and start 3-day trial
+      window.location.href = '/shop-setup';
     } else {
-      // Navigate to billing page with tab parameter
       window.location.href = '/settings?tab=billing';
     }
   };
@@ -97,7 +107,7 @@ export default function AccountLocked({ status, onUpgrade }: AccountLockedProps)
             size="lg"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Upgrade Now
+            {status === 'NO_SHOP' ? 'Set Up Shop' : 'Upgrade Now'}
           </Button>
           
           <p className="text-xs text-gray-500 text-center">

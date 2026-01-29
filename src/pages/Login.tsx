@@ -13,7 +13,7 @@ import logo from '@/assets/logo.png';
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currentUser, shopId } = useAuth();
+  const { currentUser, shopId, refreshUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -64,7 +64,7 @@ export default function Login() {
           title: 'Welcome back!',
           description: 'You have successfully signed in.',
         });
-        // Navigation will be handled by the useEffect hook
+        await refreshUser();
       } else {
         toast({
           title: 'Sign in failed',
@@ -95,7 +95,8 @@ export default function Login() {
           title: 'Welcome!',
           description: 'You have successfully signed in with Google.',
         });
-        // Navigation will be handled by the useEffect hook
+        // User doc may have been created just now; refresh so redirect runs with correct currentUser/shopId
+        await refreshUser();
       } else {
         console.log('Google login failed:', result.error);
         
@@ -223,7 +224,7 @@ export default function Login() {
             <CardHeader className="space-y-1 text-center lg:text-left">
               <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
               <CardDescription>
-                Sign in to your account to continue
+                Sign in to manage customers, orders, and payments in one place.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -296,7 +297,9 @@ export default function Login() {
                 type="button"
                 variant="outline"
                 className="w-full"
+                size="lg"
                 onClick={handleGoogleLogin}
+                disabled={isLoading}
               >
                 <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                   <path

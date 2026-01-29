@@ -408,17 +408,25 @@ export default function Orders() {
                     ))
                   ) : filteredOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        <div className="flex flex-col items-center space-y-2">
-                          <ShoppingBag className="h-12 w-12 text-gray-400" />
-                          <p className="text-gray-600">
-                            {searchQuery || statusFilter !== 'ALL' 
-                              ? 'No orders found matching your criteria.' 
-                              : 'No orders yet.'}
-                          </p>
+                      <TableCell colSpan={8} className="text-center py-10">
+                        <div className="flex flex-col items-center space-y-3">
+                          <ShoppingBag className="h-12 w-12 text-muted-foreground/60" />
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {searchQuery || statusFilter !== 'ALL'
+                                ? 'No orders match your filters'
+                                : 'No orders yet'}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {searchQuery || statusFilter !== 'ALL'
+                                ? 'Try changing your search or filters.'
+                                : 'Create your first order to start tracking.'}
+                            </p>
+                          </div>
                           {!searchQuery && statusFilter === 'ALL' && (
-                            <Button onClick={() => navigate('/orders/new')} variant="outline">
-                              Create your first order
+                            <Button onClick={() => navigate('/orders/new')} size="lg" className="gap-2">
+                              <Plus className="h-4 w-4" />
+                              Create first order
                             </Button>
                           )}
                         </div>

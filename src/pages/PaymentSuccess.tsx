@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Home, Settings, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { paystackService } from '@/services/paystackService';
 import { upgradeSubscription } from '@/services/billingService';
 import { getDocument } from '@/firebase/firestore';
@@ -12,6 +13,7 @@ export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { refreshSubscription } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(true);
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [subscriptionCreated, setSubscriptionCreated] = useState(false);
@@ -67,7 +69,8 @@ export default function PaymentSuccess() {
           };
 
           await upgradeSubscription(metadata.shopId, metadata.planId, reference);
-          
+          await refreshSubscription();
+
           setSubscriptionCreated(true);
           setPaymentDetails({
             reference,

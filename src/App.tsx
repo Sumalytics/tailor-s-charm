@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ReactQueryProvider } from "@/lib/react-query";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import InstallPrompt from "@/components/InstallPrompt";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionWrapper } from "@/contexts/SubscriptionWrapper";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -61,6 +62,7 @@ const App = () => {
             <SubscriptionWrapper>
               <div className="relative">
                 <OfflineBanner onRetry={handleRetry} />
+                <InstallPrompt />
                 <Toaster />
                 <Sonner />
                 <Router>

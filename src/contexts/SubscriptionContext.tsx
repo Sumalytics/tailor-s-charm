@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { checkSubscriptionStatus, getShopSubscription } from '@/services/billingService';
-import { Subscription } from '@/types';
+import {
+  checkLocalTrialStatus,
+  getLocalTrialSubscription,
+} from '@/services/localTrialService';
+import type { Subscription } from '@/types';
 
 interface SubscriptionContextType {
   subscription: Subscription | null;
@@ -41,12 +44,10 @@ export const SubscriptionProvider = ({ children, shopId }: SubscriptionProviderP
 
     setLoading(true);
     try {
-      console.log('SubscriptionContext - Refreshing subscription for shopId:', shopId);
-      const subscriptionStatus = await checkSubscriptionStatus(shopId);
-      const currentSubscription = await getShopSubscription(shopId);
-
-      console.log('SubscriptionContext - Subscription status result:', subscriptionStatus);
-      console.log('SubscriptionContext - Current subscription:', currentSubscription);
+      // No auto-trial when record is missing (e.g. localStorage cleared).
+      // Trial only starts when user creates a new shop (ShopSettings → initLocalTrial).
+      const currentSubscription = getLocalTrialSubscription(shopId);
+      const subscriptionStatus = checkLocalTrialStatus(shopId);
 
       setSubscription(currentSubscription);
       setIsActive(subscriptionStatus.isActive);
@@ -55,7 +56,6 @@ export const SubscriptionProvider = ({ children, shopId }: SubscriptionProviderP
       setDaysUntilExpiry(subscriptionStatus.daysUntilExpiry);
     } catch (error) {
       console.error('Error refreshing subscription:', error);
-      // Default to locked on error
       setIsActive(false);
       setIsLocked(true);
       setStatus('ERROR');
@@ -68,10 +68,10 @@ export const SubscriptionProvider = ({ children, shopId }: SubscriptionProviderP
     if (shopId) {
       refreshSubscription();
     } else {
-      // No shop ID means no subscription
+      // No shop yet: don't lock — user needs to access shop-setup to create shop and start 3-day trial
       setSubscription(null);
-      setIsActive(false);
-      setIsLocked(true);
+      setIsActive(true);
+      setIsLocked(false);
       setStatus('NO_SHOP');
       setLoading(false);
     }

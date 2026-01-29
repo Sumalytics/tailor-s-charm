@@ -48,6 +48,7 @@ export interface Subscription {
   billingCycle: BillingCycle;
   cancelledAt?: Date;
   trialEndsAt?: Date;
+  trialReminderSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

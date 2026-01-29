@@ -69,13 +69,15 @@ export default function NewCustomer() {
     <DashboardLayout>
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
+            size="sm"
             onClick={() => navigate('/customers')}
-            className="flex items-center space-x-2"
+            className="flex items-center gap-2 min-h-[44px] touch-manipulation md:min-h-0"
+            aria-label="Back to customers list"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 shrink-0" />
             <span>Back to Customers</span>
           </Button>
           <div className="flex items-center space-x-2">
@@ -161,19 +163,21 @@ export default function NewCustomer() {
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end space-x-4 pt-6 border-t">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:space-x-4 pt-6 border-t">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => navigate('/customers')}
                   disabled={loading}
+                  className="sm:min-w-[100px]"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
+                  size="lg"
                   disabled={loading || !formData.name.trim()}
-                  className="flex items-center space-x-2"
+                  className="flex items-center justify-center gap-2"
                 >
                   <Save className="h-4 w-4" />
                   <span>{loading ? 'Creating...' : 'Create Customer'}</span>

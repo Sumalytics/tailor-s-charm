@@ -70,10 +70,13 @@ export const getCollection = async <T>(collectionName: string, queries: Firestor
     });
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    } as T));
+    return querySnapshot.docs.map(doc => {
+      const data = convertTimestamps(doc.data());
+      return {
+        id: doc.id,
+        ...data
+      } as T;
+    });
   } catch (error) {
     console.error(`Error getting collection ${collectionName}:`, error);
     
@@ -98,7 +101,8 @@ export const getDocument = async <T>(collectionName: string, docId: string): Pro
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as T;
+      const data = convertTimestamps(docSnap.data());
+      return { id: docSnap.id, ...data } as T;
     } else {
       return null;
     }

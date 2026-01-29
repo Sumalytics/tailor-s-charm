@@ -24,10 +24,11 @@ export function QuickActions() {
             <Button
               key={action.label}
               variant="outline"
-              className="h-auto flex-col gap-2 py-3 sm:py-4 px-2 sm:px-3 hover:bg-secondary/80 min-h-[80px] sm:min-h-[100px]"
+              className="h-auto flex-col gap-2 py-4 sm:py-5 px-3 sm:px-4 hover:bg-secondary/80 min-h-[88px] sm:min-h-[100px] touch-manipulation"
               onClick={() => navigate(action.href)}
+              aria-label={action.label}
             >
-              <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+              <action.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" aria-hidden />
               <span className="text-xs sm:text-sm font-medium text-center leading-tight">{action.label}</span>
             </Button>
           ))}

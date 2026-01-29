@@ -26,35 +26,18 @@
     <meta name="twitter:site" content="@TailorFlow" />
     <meta name="twitter:image" content="/src/assets/logo.png" />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+    <!-- PWA: manifest link is injected by vite-plugin-pwa at build -->
     
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="/src/assets/logo.png" />
+    <!-- Apple Touch Icons (for Add to Home Screen) -->
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/src/assets/logo.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/src/assets/logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-192x192.png" />
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Service Worker Registration -->
-    <script>
-    // Service Worker registration temporarily disabled for testing
-    // if ('serviceWorker' in navigator) {
-    //   window.addEventListener('load', () => {
-    //     navigator.serviceWorker.register('/sw.js')
-    //       .then((registration) => {
-    //         console.log('SW registered: ', registration);
-    //       })
-    //       .catch((registrationError) => {
-    //         console.log('SW registration failed: ', registrationError);
-    //       });
-    //   });
-    // }
-  </script>
   </body>
 </html>

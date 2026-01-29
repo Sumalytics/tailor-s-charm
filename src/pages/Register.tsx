@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Mail, Lock, Eye, EyeOff, User, Store } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { signUp } from '@/firebase/auth';
-import { addDocument } from '@/firebase/firestore';
+import { addDocument, updateDocument } from '@/firebase/firestore';
+import { initLocalTrial } from '@/services/localTrialService';
 import { UserRole } from '@/types';
 import logo from '@/assets/logo.png';
 
@@ -73,34 +74,31 @@ export default function Register() {
           description: 'Your account has been created successfully.',
         });
 
-        // If user is ADMIN and provided shop name, create shop
+        // If user is ADMIN and provided shop name, create shop, link to user, and start 3-day trial
         if (formData.role === 'ADMIN' && formData.shopName.trim()) {
           try {
             const shopData = {
               name: formData.shopName.trim(),
               ownerId: result.user.uid,
-              ownerEmail: formData.email,
-              ownerName: formData.displayName,
-              isActive: true,
+              status: 'ACTIVE' as const,
+              currency: 'GHS' as const,
               createdAt: new Date(),
-              settings: {
-                currency: 'USD',
-                timezone: 'UTC',
-                language: 'en',
-              },
+              updatedAt: new Date(),
             };
 
-            await addDocument('shops', shopData);
-            
+            const savedShopId = await addDocument('shops', shopData);
+            await updateDocument('users', result.user.uid, { shopId: savedShopId });
+            initLocalTrial(savedShopId);
+
             toast({
               title: 'Shop created!',
-              description: `${formData.shopName} has been set up successfully.`,
+              description: `${formData.shopName} is set up. You have a 3-day free trial. Log in to get started.`,
             });
           } catch (shopError) {
             console.error('Error creating shop:', shopError);
             toast({
               title: 'Shop creation failed',
-              description: 'Your account was created but we could not set up your shop. Please contact support.',
+              description: 'Your account was created but we could not set up your shop. You can set it up after logging in.',
               variant: 'destructive',
             });
           }

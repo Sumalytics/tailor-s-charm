@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Subscription, BillingPlan } from '@/types';
 import { getCollection } from '@/firebase/firestore';
 import { getTrialStatus } from '@/services/billingService';
+import TrialCountdown from '@/components/billing/TrialCountdown';
 
 export default function BillingSettings() {
   const { currentUser, shopId } = useAuth();
@@ -103,6 +104,7 @@ export default function BillingSettings() {
     try {
       // Create new subscription using billing service
       await upgradeSubscription(shopId, planToUpgrade.id, reference);
+      await refreshSubscription();
 
       toast({
         title: 'Payment Successful!',
@@ -258,7 +260,7 @@ export default function BillingSettings() {
 
               {/* Trial status information */}
               {subscription.status === 'TRIAL' && (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
@@ -291,6 +293,11 @@ export default function BillingSettings() {
                     </div>
                     {getPlanIcon(subscription.plan.type)}
                   </div>
+                  
+                  <TrialCountdown 
+                    subscription={subscription}
+                    onUpgrade={() => setUpgradeDialogOpen(true)}
+                  />
                 </div>
               )}
 

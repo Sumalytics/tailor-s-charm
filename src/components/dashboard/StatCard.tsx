@@ -37,11 +37,11 @@ export function StatCard({ title, value, description, icon: Icon, trend, variant
       variants[variant]
     )}>
       <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1 flex-1 min-w-0">
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate">{value}</p>
+        <div className="space-y-1 flex-1 min-w-0 overflow-hidden">
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground break-words">{title}</p>
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight break-words">{value}</p>
           {description && (
-            <p className="text-xs sm:text-sm text-muted-foreground">{description}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground break-words">{description}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1 text-xs sm:text-sm">
