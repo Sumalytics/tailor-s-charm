@@ -98,6 +98,8 @@ export interface Shop {
   ownerId: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   currency: Currency;
+  /** Trial start timestamp (ms) — stored in Firestore so trial works across browsers */
+  trialStartedAt?: number | Date;
   subscription?: {
     planId: string;
     status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';

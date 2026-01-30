@@ -155,6 +155,20 @@ export function checkLocalTrialStatus(shopId: string): {
   };
 }
 
+/** Sync trial from Firestore (shop.trialStartedAt) to localStorage so it works on new browsers. */
+export function syncLocalTrialFromFirestore(shopId: string, trialStartedAtMs: number): void {
+  const trialEndsAt = trialStartedAtMs + TRIAL_DAYS * 24 * 60 * 60 * 1000;
+  const record: LocalTrialRecord = {
+    trialEndsAt,
+    status: 'TRIAL',
+  };
+  try {
+    localStorage.setItem(storageKey(shopId), JSON.stringify(record));
+  } catch (e) {
+    console.warn('localTrialService: localStorage set failed', e);
+  }
+}
+
 /** Mark subscription as active (e.g. after payment). Call when user upgrades. */
 export function activateLocalSubscription(
   shopId: string,

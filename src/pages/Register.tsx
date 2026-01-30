@@ -84,6 +84,7 @@ export default function Register() {
               currency: 'GHS' as const,
               createdAt: new Date(),
               updatedAt: new Date(),
+              trialStartedAt: Date.now(),
             };
 
             const savedShopId = await addDocument('shops', shopData);

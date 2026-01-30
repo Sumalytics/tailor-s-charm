@@ -76,9 +76,14 @@ export function ShopSettings() {
         await updateDocument('shops', shopId, shopData);
         savedShopId = shopId;
       } else {
-        // Create new shop
-        console.log('Creating new shop:', shopData);
-        savedShopId = await addDocument('shops', shopData);
+        // Create new shop (include trialStartedAt so trial works across browsers)
+        const newShopData = {
+          ...shopData,
+          createdAt: new Date(),
+          trialStartedAt: Date.now(),
+        };
+        console.log('Creating new shop:', newShopData);
+        savedShopId = await addDocument('shops', newShopData);
         
         // Update user with shopId
         console.log('Updating user with shopId:', savedShopId);

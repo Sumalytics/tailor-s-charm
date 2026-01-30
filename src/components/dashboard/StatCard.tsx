@@ -33,7 +33,7 @@ const iconVariants = {
 export function StatCard({ title, value, description, icon: Icon, trend, variant = 'default' }: StatCardProps) {
   return (
     <div className={cn(
-      'rounded-xl border p-4 sm:p-6 shadow-soft transition-all duration-200 hover:shadow-md animate-fade-in',
+      'rounded-2xl border p-4 sm:p-6 shadow-soft transition-all duration-200 hover:shadow-md active:scale-[0.99] animate-fade-in',
       variants[variant]
     )}>
       <div className="flex items-start justify-between gap-3">

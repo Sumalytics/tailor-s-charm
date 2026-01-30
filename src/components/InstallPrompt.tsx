@@ -6,6 +6,9 @@ const STORAGE_KEY = 'tailorflow_install_prompt_dismissed_at';
 /** Re-offer installation after this many days */
 const REOFFER_AFTER_DAYS = 7;
 
+/** On tablets (7", 11"), beforeinstallprompt may not fire. Users can install via
+ * Chrome menu (⋮) > "Install app" or "Add to Home Screen". */
+
 function shouldShowAgain(): boolean {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -62,7 +65,7 @@ export default function InstallPrompt() {
   if (!showBanner || isInstalled || !deferredPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:max-w-sm">
+    <div className="fixed bottom-24 left-4 right-4 z-50 md:bottom-4 md:left-auto md:right-4 md:max-w-sm">
       <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-lg dark:border-emerald-800 dark:bg-emerald-950/90">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
           <Download className="h-5 w-5" />

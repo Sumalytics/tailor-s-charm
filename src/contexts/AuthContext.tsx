@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { onAuthStateChangedListener } from '@/firebase/auth';
@@ -41,10 +41,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [authError, setAuthError] = useState<Error | null>(null);
   const { isOnline, isOffline } = useNetworkStatus();
 
+  const fetchUserWithRetry = useCallback(async (uid: string, maxRetries = 3): Promise<User | null> => {
+    let lastError: Error | null = null;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const userData = await getDocument<User>('users', uid);
+        return userData;
+      } catch (error) {
+        lastError = error as Error;
+        const isNetworkError = lastError.message?.toLowerCase().includes('network') ||
+          lastError.message?.toLowerCase().includes('connection') ||
+          lastError.message?.toLowerCase().includes('offline') ||
+          lastError.message?.toLowerCase().includes('unavailable');
+        if (attempt < maxRetries && isNetworkError) {
+          const delay = attempt * 1500;
+          console.warn(`AuthContext: Retry ${attempt}/${maxRetries} in ${delay}ms after network error`);
+          await new Promise((r) => setTimeout(r, delay));
+        } else {
+          throw lastError;
+        }
+      }
+    }
+    throw lastError ?? new Error('Failed to fetch user');
+  }, []);
+
   const refreshUser = async () => {
     if (firebaseUser) {
       try {
-        const userData = await getDocument<User>('users', firebaseUser.uid);
+        const userData = await fetchUserWithRetry(firebaseUser.uid);
         setCurrentUser(userData);
         setUserRole(userData?.role || null);
         setShopId(userData?.shopId || null);
@@ -78,7 +102,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (user) {
         try {
           console.log('AuthContext - Fetching user data for:', user.uid);
-          const userData = await getDocument<User>('users', user.uid);
+          const userData = await fetchUserWithRetry(user.uid);
           console.log('AuthContext - User data fetched:', userData);
           setCurrentUser(userData);
           setUserRole(userData?.role ?? null);
@@ -89,6 +113,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const err = error as Error;
           setAuthError(err);
           if (err.message?.toLowerCase().includes('network') || err.message?.toLowerCase().includes('connection') || isOffline) {
+            // Network error after retries: keep firebaseUser, allow manual retry via refreshUser
             setCurrentUser(null);
             setUserRole(null);
             setShopId(null);
@@ -110,7 +135,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
 
     return unsubscribe;
-  }, [isOffline]);
+  }, [isOffline, fetchUserWithRetry]);
 
   const value: AuthContextType = {
     currentUser,

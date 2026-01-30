@@ -3,8 +3,10 @@ import type { ReactNode } from 'react';
 import {
   checkLocalTrialStatus,
   getLocalTrialSubscription,
+  syncLocalTrialFromFirestore,
 } from '@/services/localTrialService';
-import { getShopSubscription as getFirestoreShopSubscription } from '@/firebase/firestore';
+import { getShopSubscription as getFirestoreShopSubscription, getDocument } from '@/firebase/firestore';
+import type { Shop } from '@/types';
 import type { Subscription } from '@/types';
 
 export type AccountStatusDisplay = 'Trial' | 'Active' | 'Trial expired' | 'No subscription' | 'No shop';
@@ -88,8 +90,27 @@ export const SubscriptionProvider = ({ children, shopId }: SubscriptionProviderP
         return;
       }
 
+      let subscriptionStatus = checkLocalTrialStatus(shopId);
+
+      // If no trial in localStorage (e.g. different browser), check Firestore shop.trialStartedAt or createdAt
+      if (subscriptionStatus.status === 'NO_SUBSCRIPTION') {
+        try {
+          const shop = await getDocument<Shop>('shops', shopId);
+          const trialStartedAt = shop?.trialStartedAt ?? shop?.createdAt;
+          if (trialStartedAt != null) {
+            const startedMs = typeof trialStartedAt === 'number' ? trialStartedAt : new Date(trialStartedAt).getTime();
+            const trialEndsAt = startedMs + 30 * 24 * 60 * 60 * 1000;
+            if (Date.now() < trialEndsAt) {
+              syncLocalTrialFromFirestore(shopId, startedMs);
+              subscriptionStatus = checkLocalTrialStatus(shopId);
+            }
+          }
+        } catch (e) {
+          console.warn('SubscriptionContext: Failed to fetch shop trial from Firestore', e);
+        }
+      }
+
       const currentSubscription = getLocalTrialSubscription(shopId);
-      const subscriptionStatus = checkLocalTrialStatus(shopId);
 
       setSubscription(currentSubscription);
       setIsActive(subscriptionStatus.isActive);
