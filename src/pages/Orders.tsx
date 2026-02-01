@@ -210,7 +210,7 @@ export default function Orders() {
     const customerName = getCustomerName(order.customerId);
     const totalPaid = getTotalPaid(order.id);
     const remaining = getRemainingBalance(order);
-    const message = `Hello ${customerName}! 👋\n\nYour order details:\n📋 Order: ${order.description}\n💰 Total: ${order.currency} ${order.amount.toFixed(2)}\n💳 Paid: ${order.currency} ${totalPaid.toFixed(2)}\n💵 Remaining: ${order.currency} ${remaining.toFixed(2)}\n📅 Due: ${order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}\n📊 Status: ${order.status}\n\nView your invoice: ${window.location.origin}/invoice/${order.id}\n\nThank you for your business! 🧵`;
+    const message = `Hello ${customerName}!\n\nYour order details:\nOrder: ${order.description}\nTotal: ${order.currency} ${order.amount.toFixed(2)}\nPaid: ${order.currency} ${totalPaid.toFixed(2)}\nRemaining: ${order.currency} ${remaining.toFixed(2)}\nDue: ${order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}\nStatus: ${order.status}\n\nView your invoice: ${window.location.origin}/invoice/${order.id}\n\nThank you for your business!`;
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -378,7 +378,96 @@ export default function Orders() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <ShoppingBag className="h-12 w-12 mx-auto mb-4 text-muted-foreground/60" />
+                <p className="font-medium text-foreground">
+                  {searchQuery || statusFilter !== 'ALL' ? 'No orders match your filters' : 'No orders yet'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {searchQuery || statusFilter !== 'ALL' ? 'Try changing your search or filters.' : 'Create your first order to start tracking.'}
+                </p>
+                {!searchQuery && statusFilter === 'ALL' && (
+                  <Button onClick={() => navigate('/orders/new')} size="lg" className="gap-2 mt-4">
+                    <Plus className="h-4 w-4" />
+                    Create first order
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Mobile: card list */}
+                <div className="md:hidden space-y-3 px-4 pb-4">
+                  {filteredOrders.map((order) => {
+                    const totalPaid = getTotalPaid(order.id);
+                    const remaining = getRemainingBalance(order);
+                    const overdue = isOverdue(order);
+                    const customerName = getCustomerName(order.customerId);
+                    return (
+                      <div
+                        key={order.id}
+                        className="rounded-xl border bg-card p-4 shadow-sm active:scale-[0.99]"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleViewOrder(order.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleViewOrder(order.id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{customerName}</p>
+                            <p className="text-sm text-muted-foreground truncate">{order.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">#{order.id.slice(-6)}</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem onClick={() => handleViewOrder(order.id)}>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditOrder(order.id)}>Edit Order</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice(order.id)}>Generate Invoice</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleWhatsAppShare(order)}>Send via WhatsApp</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className={cn('font-medium', getStatusColor(order.status))}>
+                            {getStatusIcon(order.status)}
+                            <span className="ml-1">{order.status.replace('_', ' ')}</span>
+                          </Badge>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Amount</span>
+                            <p className="font-medium">{order.currency} {order.amount.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Paid</span>
+                            <p className="font-medium">{order.currency} {totalPaid.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Balance</span>
+                            <p className={cn('font-medium', overdue ? 'text-red-600' : remaining > 0 ? 'text-yellow-600' : 'text-green-600')}>
+                              {order.currency} {remaining.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Due: {order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}
+                          {overdue && <span className="text-red-600 font-medium ml-1">Overdue</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -393,64 +482,7 @@ export default function Orders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
-                    // Loading skeleton
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div className="h-4 w-40 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="h-6 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto"></div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto"></div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto"></div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : filteredOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-10">
-                        <div className="flex flex-col items-center space-y-3">
-                          <ShoppingBag className="h-12 w-12 text-muted-foreground/60" />
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {searchQuery || statusFilter !== 'ALL'
-                                ? 'No orders match your filters'
-                                : 'No orders yet'}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {searchQuery || statusFilter !== 'ALL'
-                                ? 'Try changing your search or filters.'
-                                : 'Create your first order to start tracking.'}
-                            </p>
-                          </div>
-                          {!searchQuery && statusFilter === 'ALL' && (
-                            <Button onClick={() => navigate('/orders/new')} size="lg" className="gap-2">
-                              <Plus className="h-4 w-4" />
-                              Create first order
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredOrders.map((order) => {
+                  {filteredOrders.map((order) => {
                       const totalPaid = getTotalPaid(order.id);
                       const remaining = getRemainingBalance(order);
                       const overdue = isOverdue(order);
@@ -548,11 +580,12 @@ export default function Orders() {
                           </TableCell>
                         </TableRow>
                       );
-                    })
-                  )}
+                    })}
                 </TableBody>
               </Table>
-            </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

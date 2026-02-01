@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getDocument, getCollection } from '@/firebase/firestore';
+import { auth } from '@/firebase/config';
 import { Order, Customer, Payment, Shop } from '@/types';
-import { FileText, Download, Calendar, User, Phone, Mail, DollarSign, MessageCircle } from 'lucide-react';
+import { FileText, Download, Calendar, User, Phone, Mail, MessageCircle } from 'lucide-react';
 
 export default function PublicInvoice() {
   const { id } = useParams<{ id: string }>();
@@ -27,46 +28,63 @@ export default function PublicInvoice() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Load order
+
+      // Load order (public get allowed for shareable invoice links)
       const orderData = await getDocument<Order>('orders', id);
       if (!orderData) {
         setError('Invoice not found');
         return;
       }
 
-      // Load customer
-      const customerData = await getDocument<Customer>('customers', orderData.customerId);
-      
-      // Load shop
-      const shopData = await getDocument<Shop>('shops', orderData.shopId);
-      
-      // Load payments
-      const paymentsList = await getCollection<Payment>('payments', [
-        { field: 'orderId', operator: '==', value: id }
+      // Load customer and shop (public get allowed for invoice display)
+      const [customerData, shopData] = await Promise.all([
+        getDocument<Customer>('customers', orderData.customerId),
+        getDocument<Shop>('shops', orderData.shopId),
       ]);
 
       setOrder(orderData);
       setCustomer(customerData);
       setShop(shopData);
-      setPayments(paymentsList.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ));
 
-    } catch (error) {
-      console.error('Error loading invoice:', error);
+      // Payments require auth; for public link use order.paidAmount
+      const isLoggedIn = !!auth.currentUser;
+      if (isLoggedIn) {
+        try {
+          const paymentsList = await getCollection<Payment>('payments', [
+            { field: 'shopId', operator: '==', value: orderData.shopId },
+            { field: 'orderId', operator: '==', value: id },
+          ]);
+          setPayments(
+            paymentsList.sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )
+          );
+        } catch {
+          setPayments([]);
+        }
+      } else {
+        setPayments([]);
+      }
+    } catch (err) {
+      console.error('Error loading invoice:', err);
       setError('Unable to load invoice. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
+  const getTotals = () => {
+    if (!order) return { totalPaid: 0, remaining: 0 };
+    const paid =
+      payments.length > 0
+        ? payments.reduce((s, p) => s + p.amount, 0)
+        : (order.paidAmount ?? 0);
+    return { totalPaid: paid, remaining: order.amount - paid };
+  };
+
   const generatePDF = () => {
     if (!order || !customer) return;
-
-    // Create a simple HTML invoice
-    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const remaining = order.amount - totalPaid;
+    const { totalPaid, remaining } = getTotals();
 
     const invoiceHTML = `
       <html>
@@ -185,10 +203,8 @@ export default function PublicInvoice() {
 
   const shareViaWhatsApp = () => {
     if (!order || !customer) return;
-
-    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const remaining = order.amount - totalPaid;
-    const message = `Hello ${customer.name}! 👋\n\nYour order details:\n📋 Order: ${order.description}\n💰 Total: ${order.currency} ${order.amount.toFixed(2)}\n💳 Paid: ${order.currency} ${totalPaid.toFixed(2)}\n💵 Remaining: ${order.currency} ${remaining.toFixed(2)}\n📅 Due: ${order.dueDate ? new Date(order.dueDate).toLocaleDateString() : 'Not set'}\n📊 Status: ${order.status}\n\nView your invoice: ${window.location.href}\n\nThank you for your business! 🧵`;
+    const { totalPaid, remaining } = getTotals();
+    const message = `Hello ${customer.name}!\n\nYour order details:\nOrder: ${order.description}\nTotal: ${order.currency} ${order.amount.toFixed(2)}\nPaid: ${order.currency} ${totalPaid.toFixed(2)}\nRemaining: ${order.currency} ${remaining.toFixed(2)}\nDue: ${order.dueDate ? new Date(order.dueDate).toLocaleDateString() : 'Not set'}\nStatus: ${order.status}\n\nView your invoice: ${window.location.href}\n\nThank you for your business!`;
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -231,8 +247,7 @@ export default function PublicInvoice() {
     );
   }
 
-  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const remaining = order.amount - totalPaid;
+  const { totalPaid, remaining } = getTotals();
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">

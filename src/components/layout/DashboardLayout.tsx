@@ -42,9 +42,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-background flex">
       <Sidebar onLogout={handleLogout} />
       <BottomNav />
-      <main className="flex-1 lg:ml-0 md:ml-0">
+      <main className="flex-1 min-w-0 overflow-x-hidden lg:ml-0 md:ml-0">
         {/* pt-14 on mobile to clear header; pb-20 to clear bottom nav */}
-        <div className="min-h-screen space-y-6 pt-14 pb-20 md:pt-0 md:pb-0">
+        <div className="min-h-screen space-y-6 pt-14 pb-20 md:pt-0 md:pb-0 overflow-x-hidden">
           <div className="px-4 md:px-8 pt-6">
             <TrialCountdown
               subscription={subscription}

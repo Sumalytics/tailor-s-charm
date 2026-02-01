@@ -100,8 +100,9 @@ export default function OrderDetail() {
       // Load customer
       const customerData = await getDocument<Customer>('customers', orderData.customerId);
       
-      // Load payments
+      // Load payments (include shopId so Firestore rules allow the query)
       const paymentsList = await getCollection<Payment>('payments', [
+        { field: 'shopId', operator: '==', value: orderData.shopId },
         { field: 'orderId', operator: '==', value: id }
       ]);
 
@@ -114,7 +115,7 @@ export default function OrderDetail() {
       // Load customer measurements
       setLoadingMeasurements(true);
       try {
-        const measurementsList = await getMeasurementsByCustomer(orderData.customerId);
+        const measurementsList = await getMeasurementsByCustomer(orderData.shopId, orderData.customerId);
         setMeasurements(measurementsList.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         ));
@@ -240,7 +241,7 @@ export default function OrderDetail() {
 
     const totalPaid = getTotalPaid();
     const remaining = getRemainingBalance();
-    const message = `Hello ${customer.name}! 👋\n\nYour order details:\n📋 Order: ${order.description}\n💰 Total: ${order.currency} ${order.amount.toFixed(2)}\n💳 Paid: ${order.currency} ${totalPaid.toFixed(2)}\n💵 Remaining: ${order.currency} ${remaining.toFixed(2)}\n📅 Due: ${order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}\n📊 Status: ${order.status}\n\nView your invoice: ${window.location.origin}/invoice/${order.id}\n\nThank you for your business! 🧵`;
+    const message = `Hello ${customer.name}!\n\nYour order details:\nOrder: ${order.description}\nTotal: ${order.currency} ${order.amount.toFixed(2)}\nPaid: ${order.currency} ${totalPaid.toFixed(2)}\nRemaining: ${order.currency} ${remaining.toFixed(2)}\nDue: ${order.dueDate ? safeDate(order.dueDate).toLocaleDateString() : 'Not set'}\nStatus: ${order.status}\n\nView your invoice: ${window.location.origin}/invoice/${order.id}\n\nThank you for your business!`;
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -275,26 +276,26 @@ export default function OrderDetail() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 overflow-x-hidden min-w-0 max-w-full">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 min-w-0">
             <Button
               variant="ghost"
               onClick={() => navigate('/orders')}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 self-start shrink-0"
             >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Orders</span>
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate">Back to Orders</span>
             </Button>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold">Order Details</h1>
-              <p className="text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Order Details</h1>
+              <p className="text-muted-foreground text-sm sm:text-base truncate">
                 Order #{order.id.slice(-6)} • {safeDate(order.createdAt).toLocaleDateString()}
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center space-x-2">
@@ -348,10 +349,10 @@ export default function OrderDetail() {
                 onClick={() => handleStatusUpdate('COMPLETED')}
                 variant="default"
                 size="sm"
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 shrink-0"
               >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Mark Complete
+                <CheckCircle className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Mark Complete</span>
               </Button>
             )}
             {order.status === 'PENDING' && (
@@ -359,31 +360,32 @@ export default function OrderDetail() {
                 onClick={() => handleStatusUpdate('IN_PROGRESS')}
                 variant="default"
                 size="sm"
+                className="shrink-0"
               >
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Start Work
+                <AlertCircle className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Start Work</span>
               </Button>
             )}
-            <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
+            <Button onClick={() => navigate(`/orders/${order.id}/edit`)} size="sm" className="shrink-0">
+              <Edit className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Edit</span>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 min-w-0">
             {/* Order Information */}
             <Card>
               <CardHeader>
                 <CardTitle>Order Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-medium text-lg">{order.description}</h3>
+              <CardContent className="space-y-4 min-w-0">
+                <div className="min-w-0">
+                  <h3 className="font-medium text-lg break-words">{order.description}</h3>
                   <Badge 
-                    className={cn("mt-2", getStatusColor(order.status))}
+                    className={cn("mt-2 shrink-0", getStatusColor(order.status))}
                   >
                     {getStatusIcon(order.status)}
                     {order.status.replace('_', ' ')}
@@ -391,13 +393,13 @@ export default function OrderDetail() {
                 </div>
                 
                 {order.notes && (
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="font-medium mb-2">Notes</h4>
-                    <p className="text-muted-foreground">{order.notes}</p>
+                    <p className="text-muted-foreground break-words">{order.notes}</p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Order Date</p>
                     <p className="font-medium">{safeDate(order.createdAt).toLocaleDateString()}</p>
@@ -433,21 +435,21 @@ export default function OrderDetail() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {customer.phone && (
-                    <div className="flex items-center space-x-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span>{customer.phone}</span>
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="break-all">{customer.phone}</span>
                     </div>
                   )}
                   {customer.email && (
-                    <div className="flex items-center space-x-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span>{customer.email}</span>
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="break-all">{customer.email}</span>
                     </div>
                   )}
                   {customer.address && (
-                    <div className="flex items-center space-x-2 md:col-span-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{customer.address}</span>
+                    <div className="flex items-start space-x-2 md:col-span-2 min-w-0">
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <span className="break-words">{customer.address}</span>
                     </div>
                   )}
                 </div>
@@ -495,14 +497,14 @@ export default function OrderDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-w-0">
                     {measurements.map((m) => (
                       <div
                         key={m.id}
-                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors min-w-0"
                         onClick={() => navigate(`/measurements/${m.id}`)}
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium truncate">{m.name}</p>
                           <p className="text-sm text-muted-foreground">
                             {garmentLabels[m.garmentType] ?? m.garmentType} · {fitLabels[m.fit] ?? m.fit}
@@ -557,16 +559,16 @@ export default function OrderDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 min-w-0">
                     {payments?.map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{payment.method || 'Unknown Method'}</p>
+                      <div key={payment.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-4 border rounded-lg min-w-0">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{payment.method || 'Unknown Method'}</p>
                           <p className="text-sm text-muted-foreground">
                             {safeDate(payment.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right shrink-0">
                           <p className="font-medium">{payment.currency} {payment.amount.toFixed(2)}</p>
                           <p className="text-sm text-muted-foreground">
                             {payment.type ? payment.type.replace('_', ' ') : 'Payment'}
@@ -587,7 +589,7 @@ export default function OrderDetail() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Financial Summary */}
             <Card>
               <CardHeader>
@@ -601,19 +603,19 @@ export default function OrderDetail() {
                 
                 <Separator />
                 
-                <div>
+                <div className="min-w-0 break-words">
                   <p className="text-sm text-muted-foreground">Total Paid</p>
-                  <p className="text-xl font-semibold text-green-600">
+                  <p className="text-xl font-semibold text-green-600 break-all">
                     {order.currency} {totalPaid.toFixed(2)}
                   </p>
                 </div>
                 
                 <Separator />
                 
-                <div>
+                <div className="min-w-0 break-words">
                   <p className="text-sm text-muted-foreground">Remaining Balance</p>
                   <p className={cn(
-                    "text-xl font-semibold",
+                    "text-xl font-semibold break-all",
                     remaining === 0 ? "text-green-600" : overdue ? "text-red-600" : "text-yellow-600"
                   )}>
                     {order.currency} {remaining.toFixed(2)}

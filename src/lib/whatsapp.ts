@@ -28,7 +28,7 @@ export function buildDebtReminderMessage(
   const total = debts.reduce((s, d) => s + d.remainingAmount, 0);
   const currency = debts[0]?.currency ?? 'GHS';
   const lines: string[] = [
-    `Hello ${customerName}! 👋`,
+    `Hello ${customerName}!`,
     '',
     `Reminder from *${shopName}* — you have an outstanding balance.`,
     '',
@@ -41,7 +41,7 @@ export function buildDebtReminderMessage(
   lines.push('');
   lines.push(`*Total outstanding: ${formatCurrency(total, currency)}*`);
   lines.push('');
-  lines.push('Please settle at your earliest convenience. Thank you! 🙏');
+  lines.push('Please settle at your earliest convenience. Thank you!');
   return lines.join('\n');
 }
 

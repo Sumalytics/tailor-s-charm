@@ -35,9 +35,11 @@ import {
   getOrdersByShop,
   getPaymentsByShop,
   getCustomersByShop,
+  getCollection,
 } from '@/firebase/firestore';
-import { Order, Payment, Customer } from '@/types';
+import { Order, Payment, Customer, Expense } from '@/types';
 import { formatCurrency } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 import {
   ChartContainer,
   ChartTooltip,
@@ -50,6 +52,7 @@ import {
   ShoppingBag,
   DollarSign,
   RefreshCw,
+  TrendingDown,
 } from 'lucide-react';
 
 const safeDate = (d: unknown): Date => {
@@ -81,6 +84,7 @@ export default function ShopAnalytics() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState<PeriodGranularity>('month');
   const [range, setRange] = useState<RangePreset>('6m');
@@ -89,14 +93,16 @@ export default function ShopAnalytics() {
     if (!shopId) return;
     setLoading(true);
     try {
-      const [o, p, c] = await Promise.all([
+      const [o, p, c, exp] = await Promise.all([
         getOrdersByShop(shopId),
         getPaymentsByShop(shopId),
         getCustomersByShop(shopId),
+        getCollection<Expense>('expenses', [{ field: 'shopId', operator: '==', value: shopId }]),
       ]);
       setOrders(o);
       setPayments(p);
       setCustomers(c);
+      setExpenses(exp);
     } catch (e) {
       console.error('Error loading analytics data:', e);
     } finally {
@@ -272,6 +278,8 @@ export default function ShopAnalytics() {
   }, [orders, completedPayments]);
 
   const totalRevenue = completedPayments.reduce((s, p) => s + p.amount, 0);
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const netProfit = totalRevenue - totalExpenses;
   const avgOrderValue = orders.length ? totalRevenue / orders.length : 0;
   const currency = orders[0]?.currency ?? 'GHS';
 
@@ -332,7 +340,7 @@ export default function ShopAnalytics() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total revenue</CardTitle>
@@ -341,6 +349,28 @@ export default function ShopAnalytics() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(totalRevenue, currency)}</div>
               <p className="text-xs text-muted-foreground">All time (from payments)</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total expenses</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses, currency)}</div>
+              <p className="text-xs text-muted-foreground">All time</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net profit</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={cn('text-2xl font-bold', netProfit >= 0 ? 'text-success' : 'text-destructive')}>
+                {formatCurrency(netProfit, currency)}
+              </div>
+              <p className="text-xs text-muted-foreground">Revenue minus expenses</p>
             </CardContent>
           </Card>
           <Card>
@@ -356,7 +386,7 @@ export default function ShopAnalytics() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Avg order value</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(avgOrderValue, currency)}</div>
@@ -370,7 +400,7 @@ export default function ShopAnalytics() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{customers.length}</div>
-              <p className="text-xs text-muted-foreground">With at least one order</p>
+              <p className="text-xs text-muted-foreground">Total customers</p>
             </CardContent>
           </Card>
         </div>
@@ -488,38 +518,69 @@ export default function ShopAnalytics() {
             {topByFulfilment.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No data</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 font-medium">#</th>
-                      <th className="text-left py-2 font-medium">Customer</th>
-                      <th className="text-right py-2 font-medium">Orders</th>
-                      <th className="text-right py-2 font-medium">Order total</th>
-                      <th className="text-right py-2 font-medium">Paid</th>
-                      <th className="text-right py-2 font-medium">Fulfilment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topByFulfilment.map((row, i) => (
-                      <tr
-                        key={row.customerId}
-                        className="border-b hover:bg-muted/30 cursor-pointer"
-                        onClick={() => navigate(`/customers/${row.customerId}`)}
-                      >
-                        <td className="py-2 font-mono text-muted-foreground">{i + 1}</td>
-                        <td className="py-2 font-medium">{row.name}</td>
-                        <td className="py-2 text-right">{row.orderCount}</td>
-                        <td className="py-2 text-right">{formatCurrency(row.totalAmount, currency)}</td>
-                        <td className="py-2 text-right">{formatCurrency(row.totalPaid, currency)}</td>
-                        <td className="py-2 text-right font-medium">
+              <>
+                {/* Mobile: card list */}
+                <div className="md:hidden space-y-3">
+                  {topByFulfilment.map((row, i) => (
+                    <div
+                      key={row.customerId}
+                      className="rounded-xl border bg-card p-4 shadow-sm active:scale-[0.99]"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(`/customers/${row.customerId}`)}
+                      onKeyDown={(e) => e.key === 'Enter' && navigate(`/customers/${row.customerId}`)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-muted-foreground font-mono text-sm w-5">{i + 1}</span>
+                          <span className="font-medium truncate">{row.name}</span>
+                        </div>
+                        <span className="font-medium shrink-0">
                           {row.fulfilment >= 100 ? '100%' : `${row.fulfilment.toFixed(1)}%`}
-                        </td>
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                        <span>{row.orderCount} orders</span>
+                        <span className="text-right">Total: {formatCurrency(row.totalAmount, currency)}</span>
+                        <span>Paid: {formatCurrency(row.totalPaid, currency)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 font-medium">#</th>
+                        <th className="text-left py-2 font-medium">Customer</th>
+                        <th className="text-right py-2 font-medium">Orders</th>
+                        <th className="text-right py-2 font-medium">Order total</th>
+                        <th className="text-right py-2 font-medium">Paid</th>
+                        <th className="text-right py-2 font-medium">Fulfilment</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {topByFulfilment.map((row, i) => (
+                        <tr
+                          key={row.customerId}
+                          className="border-b hover:bg-muted/30 cursor-pointer"
+                          onClick={() => navigate(`/customers/${row.customerId}`)}
+                        >
+                          <td className="py-2 font-mono text-muted-foreground">{i + 1}</td>
+                          <td className="py-2 font-medium">{row.name}</td>
+                          <td className="py-2 text-right">{row.orderCount}</td>
+                          <td className="py-2 text-right">{formatCurrency(row.totalAmount, currency)}</td>
+                          <td className="py-2 text-right">{formatCurrency(row.totalPaid, currency)}</td>
+                          <td className="py-2 text-right font-medium">
+                            {row.fulfilment >= 100 ? '100%' : `${row.fulfilment.toFixed(1)}%`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

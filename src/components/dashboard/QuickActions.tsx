@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserPlus, ShoppingBag, Ruler, CreditCard } from 'lucide-react';
+import { UserPlus, ShoppingBag, Ruler, CreditCard, ReceiptText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const actions = [
@@ -8,6 +8,7 @@ const actions = [
   { label: 'New Order', icon: ShoppingBag, href: '/orders/new', color: 'info' },
   { label: 'Add Measurement', icon: Ruler, href: '/measurements/new', color: 'success' },
   { label: 'Record Payment', icon: CreditCard, href: '/payments/new', color: 'warning' },
+  { label: 'Add Expense', icon: ReceiptText, href: '/expenses/new', color: 'default' },
 ] as const;
 
 export function QuickActions() {
@@ -19,7 +20,7 @@ export function QuickActions() {
         <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {actions.map((action) => (
             <Button
               key={action.label}

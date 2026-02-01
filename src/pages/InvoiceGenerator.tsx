@@ -46,8 +46,9 @@ export default function InvoiceGenerator() {
       // Load shop
       const shopData = await getDocument<Shop>('shops', orderData.shopId);
       
-      // Load payments
+      // Load payments (include shopId so Firestore rules allow the query)
       const paymentsList = await getCollection<Payment>('payments', [
+        { field: 'shopId', operator: '==', value: orderData.shopId },
         { field: 'orderId', operator: '==', value: id }
       ]);
 

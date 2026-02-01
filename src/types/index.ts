@@ -187,6 +187,28 @@ export interface Payment {
   createdBy: string;
 }
 
+export type ExpenseCategory =
+  | 'MATERIALS'
+  | 'UTILITIES'
+  | 'RENT'
+  | 'SALARIES'
+  | 'EQUIPMENT'
+  | 'TRANSPORT'
+  | 'OTHER';
+
+export interface Expense {
+  id: string;
+  shopId: string;
+  amount: number;
+  currency: Currency;
+  category: ExpenseCategory;
+  description: string;
+  date: Date;
+  notes?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
 export interface Debt {
   id: string;
   shopId: string;
@@ -268,5 +290,6 @@ export interface DashboardStats {
   pendingOrders: number;
   completedOrders: number;
   totalRevenue: number;
+  totalExpenses: number;
   pendingPayments: number;
 }

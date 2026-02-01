@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDebtsByShop, getCustomersByShop, getDocument } from '@/firebase/firestore';
+import { getDebtsByShop, getCustomersByShop, getDocument, ensureDebtRecordsForCompletedOrders } from '@/firebase/firestore';
 import { Debt, Customer, Shop } from '@/types';
 import { formatCurrency } from '@/lib/currency';
 import { buildDebtReminderMessage, getWhatsAppUrl, toWhatsAppPhone } from '@/lib/whatsapp';
@@ -55,6 +55,7 @@ export default function Debts() {
     if (!shopId) return;
     setLoading(true);
     try {
+      await ensureDebtRecordsForCompletedOrders(shopId);
       const [debtsData, customersData, shopData] = await Promise.all([
         getDebtsByShop(shopId),
         getCustomersByShop(shopId),

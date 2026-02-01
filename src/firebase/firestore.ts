@@ -252,22 +252,24 @@ export const getPaymentsByShop = async (shopId: string): Promise<Payment[]> => {
   ]);
 };
 
-export const getPaymentsByOrder = async (orderId: string): Promise<Payment[]> => {
+export const getPaymentsByOrder = async (shopId: string, orderId: string): Promise<Payment[]> => {
   return await getCollection<Payment>('payments', [
+    { field: 'shopId', operator: '==', value: shopId },
     { field: 'orderId', operator: '==', value: orderId }
   ]);
 };
 
-export const getTotalPaidForOrder = async (orderId: string): Promise<number> => {
-  const payments = await getPaymentsByOrder(orderId);
+export const getTotalPaidForOrder = async (shopId: string, orderId: string): Promise<number> => {
+  const payments = await getPaymentsByOrder(shopId, orderId);
   return payments
     .filter(payment => payment.status === 'COMPLETED' && payment.type !== 'REFUND')
     .reduce((total, payment) => total + payment.amount, 0);
 };
 
 // Measurement specific operations
-export const getMeasurementsByCustomer = async (customerId: string): Promise<Measurement[]> => {
+export const getMeasurementsByCustomer = async (shopId: string, customerId: string): Promise<Measurement[]> => {
   return await getCollection<Measurement>('measurements', [
+    { field: 'shopId', operator: '==', value: shopId },
     { field: 'customerId', operator: '==', value: customerId }
   ]);
 };
@@ -342,17 +344,43 @@ export const getDebtsByShop = async (shopId: string): Promise<Debt[]> => {
   ]);
 };
 
+/**
+ * Ensures debt records exist for all completed orders with outstanding balance.
+ * Creates missing records so the Debtors page shows accurate data.
+ * Uses payment totals when available for correct remaining amount.
+ */
+export const ensureDebtRecordsForCompletedOrders = async (shopId: string): Promise<void> => {
+  const [debts, orders] = await Promise.all([
+    getCollection<Debt>('debts', [{ field: 'shopId', operator: '==', value: shopId }]),
+    getOrdersByShop(shopId),
+  ]);
+  const debtOrderIds = new Set(debts.map((d) => d.orderId));
+  const completed = orders.filter((o) => o.status === 'COMPLETED');
+  for (const order of completed) {
+    if (debtOrderIds.has(order.id)) continue;
+    const totalPaid = await getTotalPaidForOrder(shopId, order.id);
+    const remaining = order.amount - totalPaid;
+    if (remaining > 0) {
+      const orderWithPaid = { ...order, paidAmount: totalPaid };
+      await createDebtRecord(orderWithPaid, remaining);
+      debtOrderIds.add(order.id);
+    }
+  }
+};
+
 // Dashboard statistics
 export const getDashboardStats = async (shopId: string) => {
-  const customers = await getCustomersByShop(shopId);
-  const orders = await getOrdersByShop(shopId);
-  const payments = await getPaymentsByShop(shopId);
+  const [customers, orders, payments, expenses] = await Promise.all([
+    getCustomersByShop(shopId),
+    getOrdersByShop(shopId),
+    getPaymentsByShop(shopId),
+    getCollection<{ amount: number }>('expenses', [{ field: 'shopId', operator: '==', value: shopId }]),
+  ]);
   
   const pendingOrders = orders.filter(order => order.status === 'PENDING').length;
   const completedOrders = orders.filter(order => order.status === 'COMPLETED').length;
   const totalRevenue = payments
     .filter(payment => {
-      // Handle payments with undefined status (legacy data) - assume they are completed
       const isCompleted = payment.status === 'COMPLETED' || 
                          payment.status === undefined || 
                          payment.status === null;
@@ -360,6 +388,7 @@ export const getDashboardStats = async (shopId: string) => {
       return isCompleted && isNotRefund;
     })
     .reduce((total, payment) => total + payment.amount, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const pendingPayments = payments
     .filter(payment => payment.status === 'PENDING')
     .reduce((total, payment) => total + payment.amount, 0);
@@ -370,6 +399,7 @@ export const getDashboardStats = async (shopId: string) => {
     pendingOrders,
     completedOrders,
     totalRevenue,
+    totalExpenses,
     pendingPayments,
   };
 };

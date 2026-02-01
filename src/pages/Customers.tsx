@@ -208,7 +208,82 @@ export default function Customers() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : filteredCustomers.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/60" />
+                <p className="text-muted-foreground">
+                  {searchQuery ? 'No customers found matching your search.' : 'No customers yet.'}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={handleAddCustomer} variant="outline" className="mt-4">
+                    Add your first customer
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Mobile: card list */}
+                <div className="md:hidden space-y-3 px-4 pb-4">
+                  {filteredCustomers.map((customer) => {
+                    const customerStats = getCustomerStats(customer.id);
+                    return (
+                      <div
+                        key={customer.id}
+                        className="rounded-xl border bg-card p-4 shadow-sm active:scale-[0.99]"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleCustomerClick(customer.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCustomerClick(customer.id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-medium text-primary">
+                                {customer.name.split(' ').map((n) => n[0]).join('').toUpperCase() || '?'}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{customer.name}</p>
+                              {customer.phone && (
+                                <p className="text-sm text-muted-foreground truncate">{customer.phone}</p>
+                              )}
+                              {!customer.phone && customer.email && (
+                                <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
+                              )}
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem onClick={() => handleCustomerClick(customer.id)}>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/orders/new?customerId=${customer.id}`)}>Create Order</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/measurements/new?customerId=${customer.id}`)}>Add Measurement</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        {customer.address && (
+                          <p className="mt-2 text-sm text-muted-foreground truncate">{customer.address}</p>
+                        )}
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{customerStats.ordersCount} orders</span>
+                          <span className="font-medium">
+                            {customerStats.totalSpent > 0 ? customerStats.totalSpent.toLocaleString() : '-'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -221,57 +296,7 @@ export default function Customers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
-                    // Loading skeleton
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 animate-pulse"></div>
-                            <div>
-                              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
-                              <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div className="space-y-2">
-                            <div className="h-3 w-32 bg-gray-200 rounded animate-pulse"></div>
-                            <div className="h-3 w-28 bg-gray-200 rounded animate-pulse"></div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="h-3 w-36 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="h-6 w-8 bg-gray-200 rounded animate-pulse mx-auto"></div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse ml-auto"></div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : filteredCustomers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        <div className="flex flex-col items-center space-y-2">
-                          <Users className="h-12 w-12 text-gray-400" />
-                          <p className="text-gray-600">
-                            {searchQuery ? 'No customers found matching your search.' : 'No customers yet.'}
-                          </p>
-                          {!searchQuery && (
-                            <Button onClick={handleAddCustomer} variant="outline">
-                              Add your first customer
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCustomers.map((customer) => {
+                  {filteredCustomers.map((customer) => {
                       const customerStats = getCustomerStats(customer.id);
                       return (
                         <TableRow 
@@ -355,11 +380,12 @@ export default function Customers() {
                           </TableCell>
                         </TableRow>
                       );
-                    })
-                  )}
+                    })}
                 </TableBody>
               </Table>
-            </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

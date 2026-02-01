@@ -27,9 +27,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PaymentMethod, PaymentStatus, Payment, Customer } from '@/types';
+import { PaymentMethod, PaymentStatus, Payment, Customer, Shop, Order } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getCollection } from '@/firebase/firestore';
+import { getCollection, getDocument } from '@/firebase/firestore';
+import { printPaymentReceipt } from '@/lib/receiptPrint';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +65,7 @@ export default function Payments() {
   const [searchQuery, setSearchQuery] = useState('');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,13 +79,14 @@ export default function Payments() {
 
     setLoading(true);
     try {
-      const [paymentsData, customersData] = await Promise.all([
+      const [paymentsData, customersData, shopData] = await Promise.all([
         getCollection<Payment>('payments', [
           { field: 'shopId', operator: '==', value: shopId }
         ]),
         getCollection<Customer>('customers', [
           { field: 'shopId', operator: '==', value: shopId }
-        ])
+        ]),
+        getDocument<Shop>('shops', shopId),
       ]);
       
       // Sort payments by creation date (newest first)
@@ -93,6 +96,7 @@ export default function Payments() {
       
       setPayments(sortedPayments);
       setCustomers(customersData);
+      setShop(shopData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -139,11 +143,6 @@ export default function Payments() {
     .filter((p) => p.type === 'REFUND')
     .reduce((sum, p) => sum + p.amount, 0);
 
-  // Debug: Log payment data to understand the issue
-  console.log('Payments data:', payments);
-  console.log('Payment statuses:', payments.map(p => ({ id: p.id, status: p.status, type: p.type, amount: p.amount })));
-  console.log('Calculations:', { totalReceived, totalPending, totalRefunded });
-
   const handleRecordPayment = () => {
     navigate('/payments/new');
   };
@@ -159,11 +158,27 @@ export default function Payments() {
     });
   };
 
-  const handlePrintReceipt = (payment: Payment) => {
-    toast({
-      title: 'Print Receipt',
-      description: 'Receipt printing functionality coming soon',
-    });
+  const handlePrintReceipt = async (payment: Payment) => {
+    try {
+      const customerName = getCustomerName(payment.customerId);
+      let orderDescription: string | undefined;
+      if (payment.orderId) {
+        const order = await getDocument<Order>('orders', payment.orderId);
+        orderDescription = order?.description;
+      }
+      printPaymentReceipt(payment, customerName, shop, orderDescription);
+      toast({
+        title: 'Print receipt',
+        description: 'Select your 80mm USB/Bluetooth thermal printer in the print dialog.',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to print';
+      toast({
+        title: 'Print failed',
+        description: msg,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleRefund = (payment: Payment) => {
@@ -272,7 +287,58 @@ export default function Payments() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* Mobile: card list */}
+                <div className="md:hidden space-y-3 px-4 pb-4">
+                  {filteredPayments.map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="rounded-xl border bg-card p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium text-primary">
+                              {getCustomerName(payment.customerId).split(' ').map((n) => n[0]).join('') || '?'}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{getCustomerName(payment.customerId)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Order #{payment.orderId?.slice(-6) || 'N/A'} · {methodLabels[payment.method] || payment.method}
+                            </p>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewDetails(payment)}>View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePrintReceipt(payment)}>Print Receipt</DropdownMenuItem>
+                            {payment.orderId && (
+                              <DropdownMenuItem onClick={() => handleViewOrder(payment.orderId)}>View Order</DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => handleRefund(payment)} className="text-destructive">Refund</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <Badge variant="outline" className={cn('font-medium', statusStyles[payment.status]?.className || 'bg-gray-100 text-gray-800')}>
+                          {statusStyles[payment.status]?.label || payment.status}
+                        </Badge>
+                        <span className={cn('font-semibold', payment.type === 'REFUND' ? 'text-destructive' : '')}>
+                          {payment.type === 'REFUND' ? '-' : ''}{formatCurrency(payment.amount, payment.currency)}
+                        </span>
+                        <span className="text-muted-foreground">{safeDate(payment.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop: table */}
+                <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -354,7 +420,8 @@ export default function Payments() {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

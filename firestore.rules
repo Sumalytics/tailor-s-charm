@@ -12,57 +12,82 @@ service cloud.firestore {
              request.auth.token.admin == true;
     }
     
-    // Helper function to check if user owns the shop
+    // Helper: user owns the shop (shop.ownerId matches current user)
     function isShopOwner(shopId) {
-      return isAuthenticated() && 
-             request.auth.uid == shopId;
+      return isAuthenticated() && shopId is string &&
+             get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
     }
     
-    // Users collection - users can read/write their own data
+    // Helper: user has access to shop (owner OR staff assigned to that shop)
+    function hasShopAccess(shopId) {
+      let shopData = get(/databases/$(database)/documents/shops/$(shopId)).data;
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && shopId is string && (
+        (shopData != null && shopData.ownerId == request.auth.uid) ||
+        (userData != null && userData.shopId == shopId)
+      );
+    }
+    
+    // Users collection - users can read/write own data; can read users in same shop (team members)
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        (resource.data.shopId != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shopId == resource.data.shopId)
+      );
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
     
     // Shops collection - shop owners can manage their shops
+    // Allow public get for invoice letterhead (name, contact)
     match /shops/{shopId} {
-      allow read: if isShopOwner(shopId) || isSuperAdmin();
-      allow write: if isShopOwner(shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(shopId);
+      allow get: if true;
+      allow list, write: if hasShopAccess(shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
     }
     
     // Customers collection - shop owners can manage their customers
+    // Allow public get for invoice display (customer is shared with via invoice link)
     match /customers/{customerId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow get: if true;
+      allow list, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Orders collection - shop owners can manage their orders
+    // Allow public get for shareable invoice links (order ID acts as token)
     match /orders/{orderId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow get: if true;
+      allow list, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Measurements collection - shop owners can manage their measurements
     match /measurements/{measurementId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow read, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Payments collection - shop owners can manage their payments
     match /payments/{paymentId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow read, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Debts collection - shop owners can manage their debts
     match /debts/{debtId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow read, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
+    }
+    
+    // Expenses collection - shop owners can manage their expenses
+    match /expenses/{expenseId} {
+      allow read, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Subscriptions collection - shop owners can read their subscriptions, super admins can manage all
     match /subscriptions/{subscriptionId} {
-      allow read: if isShopOwner(resource.data.shopId) || isSuperAdmin();
+      allow read: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
       allow write: if isSuperAdmin();
       allow create: if isSuperAdmin();
     }
@@ -77,8 +102,8 @@ service cloud.firestore {
     
     // Team Invitations collection - shop owners can manage their invitations
     match /teamInvitations/{invitationId} {
-      allow read, write: if isShopOwner(resource.data.shopId) || isSuperAdmin();
-      allow create: if isAuthenticated() && isShopOwner(resource.data.shopId);
+      allow read, write: if hasShopAccess(resource.data.shopId) || isSuperAdmin();
+      allow create: if isAuthenticated() && hasShopAccess(request.resource.data.shopId);
     }
     
     // Notification Settings collection - users can manage their own settings

@@ -15,6 +15,7 @@ import {
   BarChart3,
   PieChart,
   Receipt,
+  ReceiptText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,7 @@ const regularNavItems: NavItem[] = [
   { label: 'Measurements', href: '/measurements', icon: Ruler },
   { label: 'Payments', href: '/payments', icon: CreditCard },
   { label: 'Debtors', href: '/debts', icon: Receipt },
+  { label: 'Expenses', href: '/expenses', icon: ReceiptText },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];

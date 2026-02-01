@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentOrders } from '@/components/dashboard/RecentOrders';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { Users, ShoppingBag, Clock, DollarSign } from 'lucide-react';
+import { Users, ShoppingBag, Clock, DollarSign, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDashboardStats, getOrdersByShop } from '@/firebase/firestore';
 import { DashboardStats, Order } from '@/types';
@@ -73,7 +73,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
           <StatCard
             title="Total Customers"
             value={stats?.totalCustomers.toLocaleString() || '0'}
@@ -98,6 +98,12 @@ export default function Dashboard() {
             value={formatCurrency(stats?.totalRevenue || 0)}
             icon={DollarSign}
             variant="success"
+          />
+          <StatCard
+            title="Total Expenses"
+            value={formatCurrency(stats?.totalExpenses || 0)}
+            icon={TrendingDown}
+            variant="default"
           />
         </div>
 

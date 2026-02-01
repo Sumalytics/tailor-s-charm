@@ -40,6 +40,8 @@ import PublicInvoice from "./pages/PublicInvoice";
 import Payments from "./pages/Payments";
 import NewPayment from "./pages/NewPayment";
 import Debts from "./pages/Debts";
+import Expenses from "./pages/Expenses";
+import NewExpense from "./pages/NewExpense";
 import ShopAnalytics from "./pages/ShopAnalytics";
 import Measurements from "./pages/Measurements";
 import Settings from "./pages/Settings";
@@ -161,6 +163,8 @@ const App = () => {
                       </ProtectedRouteComponent>
                     </ProtectedRoute>
                   } />
+                  {/* Public shareable invoice - no login required */}
+                  <Route path="/invoice/:id" element={<PublicInvoice />} />
                   <Route path="/invoices" element={
                     <ProtectedRoute>
                       <ProtectedRouteComponent>
@@ -191,6 +195,20 @@ const App = () => {
                     <ProtectedRoute>
                       <ProtectedRouteComponent>
                         <Debts />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/expenses" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <Expenses />
+                      </ProtectedRouteComponent>
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/expenses/new" element={
+                    <ProtectedRoute>
+                      <ProtectedRouteComponent>
+                        <NewExpense />
                       </ProtectedRouteComponent>
                     </ProtectedRoute>
                   } />
